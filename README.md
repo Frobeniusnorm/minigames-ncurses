@@ -1,6 +1,7 @@
 # minigames-ncurses
 Some arcade games implemented in ncurses
-Currently featuring:
+
+Currently included:
  * Snake
 
 Because only Snake is implemented, there is no menu and Snake starts directly.
