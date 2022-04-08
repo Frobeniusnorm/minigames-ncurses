@@ -27,7 +27,7 @@ static void initMenu(){
   refresh();
   int currentChoice = 0;
   while(true){
-    
+
     printMenu(menu, currentChoice);
     int startedGame = 0;
     switch(getch()){
@@ -41,23 +41,23 @@ static void initMenu(){
         switch(currentChoice){
           case 0:
             runSnake(0);
-			startedGame = 1;
+			      startedGame = 1;
             break;
           case 1:
-		  	runTetris(0);
-			startedGame = 1;
+      		  runTetris(0);
+      			startedGame = 1;
             break;
           case 2:
             delwin(menu);
             refresh();
             return;
         }
-		if(startedGame){
-			clear();
-            timeout(-1);
-            mvprintw(height/2 - sizey/2 - 2, width/2 - 7, "Select a game");
-            refresh();
-		}
+    		if(startedGame){
+          clear();
+          timeout(-1);
+          mvprintw(height/2 - sizey/2 - 2, width/2 - 7, "Select a game");
+          refresh();
+        }
         break;
     }
   }
