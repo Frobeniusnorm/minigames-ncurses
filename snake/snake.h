@@ -1,0 +1,1 @@
+void runSnake(int maxscore);
