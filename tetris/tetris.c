@@ -27,8 +27,8 @@ static void setBlock(Block* b, const int y, const int x){
 	b->y = y;
 }
 /*
-  ##
-######
+ #
+###
 */
 static void drawFigure1(Form* form){
 	int x = form->x;
@@ -59,7 +59,7 @@ static void drawFigure1(Form* form){
 	}
 }
 /*
-########
+####
 */
 static void drawFigure2(Form* form){
 	int x = form->x;
@@ -79,6 +79,87 @@ static void drawFigure2(Form* form){
 		case 3:
 			for(int i = 0; i < 4; i++)
 				setBlock(&form->blocks[blockidx++], y + i+start, x + 2);
+			break;
+	}
+}
+/*
+##
+##
+*/
+static void drawFigure3(Form* form){
+	int x = form->x;
+	int y = form->y;
+	int rotation = form->rotation;
+	int blockidx = 0;
+	int startx = 0;
+	int starty = 0;
+	switch(rotation){
+		case 0:
+			startx = 1;
+			starty = 1;
+			break;
+		case 1:
+			starty = 1;
+			break;
+		case 3:
+		 	startx = 1;
+			break;
+	}
+	for(int i = 0; i < 2; i++)
+		for(int j = 0; j < 2; j++)
+			setBlock(&form->blocks[blockidx++], y + j + starty, x + i + startx);
+}
+/*
+#
+####
+*/
+static void drawFigure4(Form* form){
+	int x = form->x;
+	int y = form->y;
+	int rotation = form->rotation;
+	int blockidx = 0;
+	int start = 0;
+	switch(rotation){
+		case 0:
+			start = 1;
+		case 2:
+			setBlock(&form->blocks[blockidx++], start == 1? y : y + 2, start == 1 ? x + 1 : x + 2);
+			for(int i = 0; i < 3; i++)
+				setBlock(&form->blocks[blockidx++], y + 1, x + i+start);
+			break;
+		case 1:
+			start = 1;
+		case 3:
+			setBlock(&form->blocks[blockidx++], start == 1? y + 1 : y + 2, start == 1 ? x + 2 : x);
+			for(int i = 0; i < 3; i++)
+				setBlock(&form->blocks[blockidx++], y + i+start, x + 1);
+			break;
+	}
+}
+/*
+   #
+####
+*/
+static void drawFigure5(Form* form){
+	int x = form->x;
+	int y = form->y;
+	int rotation = form->rotation;
+	int blockidx = 0;
+	int start = 0;
+	switch(rotation){
+		case 0:
+			start = 1;
+		case 2:
+			setBlock(&form->blocks[blockidx++], start == 1? y : y + 2, start == 1 ? x + 3 : x);
+			for(int i = 0; i < 3; i++)
+				setBlock(&form->blocks[blockidx++], y + 1, x + i+start);
+			break;
+		case 1:
+			start = 1;
+		case 3:
+			setBlock(&form->blocks[blockidx++], start == 1? y + 3 : y, start == 1 ? x + 2 : x);
+			for(int i = 0; i < 3; i++)
+				setBlock(&form->blocks[blockidx++], y + i+start, x + 1);
 			break;
 	}
 }
@@ -121,6 +202,15 @@ static void drawFigure(){
 		case 2:
 			drawFigure2(current);
 			break;
+		case 3:
+			drawFigure3(current);
+			break;
+		case 4:
+			drawFigure4(current);
+			break;
+		case 5:
+			drawFigure5(current);
+			break;
 	}
 }
 static int collisionDetection(Form* f, int mvx, int mvy){
@@ -158,7 +248,7 @@ static void newForm(){
 	current->type = newType;
 	current->color = newColor;
 	current->x = 9;
-	current->y = newType == 1 ? 1 : 0;
+	current->y = newType != 0 ? 1 : 0;
 
 	ToFree* nfreeing = (ToFree*)malloc(sizeof(ToFree));
 	nfreeing->next = freeing;
@@ -169,7 +259,7 @@ static void newForm(){
 		current->blocks[i].y = current->y;
 		current->blocks[i].color = current->color;
 	}
-	newType = rand() % 2 + 1;
+	newType = rand() % 5 + 1;
 	newColor = rand() % 4 + 1;
 }
 static void rotate(Form* f){
