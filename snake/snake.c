@@ -18,7 +18,7 @@ typedef struct point{
 static void gameover();
 static char* board;
 static point points[5];
-static int score = 0;
+static int score = 0;          
 static int width, height;
 static snake* snake_obj;
 static void newPoint(point* p){
@@ -52,10 +52,10 @@ static void moveSnake(snake* snake, int x, int y){
 	if(!snake->firstIt){
 
 		board[snake->y * width + snake->x] = 0;
-		if(snake->x < 0) gameover();
-		if(snake->y < 0) gameover();
-		if(snake->y >= height) gameover();
-		if(snake->x >= width) gameover();
+		if(x < 0) gameover();
+		if(y < 0) gameover();
+		if(y + 1 >= height) gameover();
+		if(x + 1 >= width) gameover();
 		if(board[y * width + x] == 1){
 				gameover();
 		}else if(board[y * width + x] == 2){
@@ -85,11 +85,11 @@ static snake* initSnake(int x, int y){
 	foo->y = y;
 	snake* curr = foo;
 	for(int i = 0; i < 5; i++){
-			curr->tail = (snake*)(malloc(sizeof(snake)));
-			curr->tail->x = curr->x - 2;
-			curr->tail->y = curr->y;
-			curr->tail->firstIt = 0;
-			curr = curr->tail;
+		curr->tail = (snake*)(malloc(sizeof(snake)));
+		curr->tail->x = curr->x - 2;
+		curr->tail->y = curr->y;
+		curr->tail->firstIt = 0;
+		curr = curr->tail;
 	}
 	curr->tail = NULL;
 	return foo;
@@ -196,6 +196,7 @@ void runSnake(int maxscore){
 	getmaxyx(stdscr, height, width);
 	init_pair(1, COLOR_GREEN, COLOR_BLACK);
 	init_pair(2, COLOR_RED, COLOR_BLACK);
+	init_color(COLOR_BLACK, 0, 0, 0);
 	init_color(COLOR_BLUE, 500, 500, 500);
 	init_pair(3, COLOR_BLUE, COLOR_BLACK);
 	win = newwin(height-2, width, 2, 0);
@@ -254,10 +255,16 @@ void runSnake(int maxscore){
 		wrefresh(scoreboard);
 	}
 	move(height/2, width/2);
-	mvwprintw(win, height/2-1, width/2-2, "GAME OVER");
+	mvwprintw(win, height/2-1, width/2-3, "GAME OVER");
+	move(height/2, width/2);
+	wattron(win, COLOR_PAIR(3));
+	mvwprintw(win, height/2, width/2-7, "[press any button]");
+	wattroff(win, COLOR_PAIR(3));
 	wrefresh(win);
 	getch();
 	//cleanup
+	score = 0;
+	keepRunning = 1;
 	delwin(win);
 	freeSnake(snake_obj);
 	free(board);

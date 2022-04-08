@@ -22,11 +22,13 @@ static void initMenu(){
   const int sizex = 30, sizey = 10;
   WINDOW* menu = newwin(sizey, sizex, height/2 - sizey/2, width/2 - sizex/2);
   timeout(-1);
+  mvprintw(height/2 - sizey/2 - 2, width/2 - 7, "Select a game");
+  refresh();
   int currentChoice = 0;
   while(true){
-    mvprintw(height/2 - sizey/2 - 2, width/2 - 7, "Select a game");
+    
     printMenu(menu, currentChoice);
-    refresh();
+    
     switch(getch()){
       case KEY_UP:
         currentChoice = currentChoice == 0 ? num_choices - 1 : currentChoice - 1;
@@ -40,6 +42,8 @@ static void initMenu(){
             runSnake(0);
             clear();
             timeout(-1);
+            mvprintw(height/2 - sizey/2 - 2, width/2 - 7, "Select a game");
+            refresh();
             break;
           case 1:
             break;
