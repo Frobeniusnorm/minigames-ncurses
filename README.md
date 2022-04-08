@@ -4,7 +4,6 @@ Some arcade games implemented in ncurses
 Currently included:
  * Snake
 
-Because only Snake is implemented, there is no menu and Snake starts directly.
 There is no implementation for highscores yet.
 
 ### Build ###
