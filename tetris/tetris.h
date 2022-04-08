@@ -1,0 +1,1 @@
+void runTetris(int maxscore);

@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include "snake/snake.h"
+#include "tetris/tetris.h"
 
 static const char* choices[] = {"Snake", "Tetris", "Exit"};
 static const int num_choices = (sizeof(choices) / sizeof(char*));
@@ -28,7 +29,7 @@ static void initMenu(){
   while(true){
     
     printMenu(menu, currentChoice);
-    
+    int startedGame = 0;
     switch(getch()){
       case KEY_UP:
         currentChoice = currentChoice == 0 ? num_choices - 1 : currentChoice - 1;
@@ -40,37 +41,42 @@ static void initMenu(){
         switch(currentChoice){
           case 0:
             runSnake(0);
-            clear();
-            timeout(-1);
-            mvprintw(height/2 - sizey/2 - 2, width/2 - 7, "Select a game");
-            refresh();
+			startedGame = 1;
             break;
           case 1:
+		  	runTetris(0);
+			startedGame = 1;
             break;
           case 2:
             delwin(menu);
             refresh();
             return;
         }
+		if(startedGame){
+			clear();
+            timeout(-1);
+            mvprintw(height/2 - sizey/2 - 2, width/2 - 7, "Select a game");
+            refresh();
+		}
         break;
     }
   }
 }
 
 int main(){
-  srand(time(0));
+  	srand(time(0));
 	initscr();
-  if(!has_colors()){
-    endwin();
+  	if(!has_colors()){
+    	endwin();
 		printf("Your terminal does not support colors!\n");
 		exit(-1);
 	}
-  start_color();
+  	start_color();
 	cbreak();
 	noecho();
 	keypad(stdscr, TRUE); //make keys work
 	curs_set(0); //hide cursor
-  initMenu();
+  	initMenu();
 
-  endwin();
+	endwin();
 }
