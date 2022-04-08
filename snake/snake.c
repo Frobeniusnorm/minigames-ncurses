@@ -15,13 +15,13 @@ typedef struct snake{
 typedef struct point{
 	int x, y;
 } point;
-void gameover();
-char* board;
-point points[5];
-int score = 0;
-int width, height;
-snake* snake_obj;
-void newPoint(point* p){
+static void gameover();
+static char* board;
+static point points[5];
+static int score = 0;
+static int width, height;
+static snake* snake_obj;
+static void newPoint(point* p){
 	int placed = 0;
 	while(!placed){
 		int r1 = 1 + rand() % (height-2);
@@ -34,7 +34,7 @@ void newPoint(point* p){
 		}
 	}
 }
-void eatPoint(int x, int y){
+static void eatPoint(int x, int y){
 	for(int i = 0; i < NUM_POINTS; i++){
 		if(points[i].x == x && points[i].y == y){
 			newPoint(&(points[i]));
@@ -48,7 +48,7 @@ void eatPoint(int x, int y){
 		}
 	}
 }
-void moveSnake(snake* snake, int x, int y){
+static void moveSnake(snake* snake, int x, int y){
 	if(!snake->firstIt){
 
 		board[snake->y * width + snake->x] = 0;
@@ -74,12 +74,12 @@ void moveSnake(snake* snake, int x, int y){
 	snake->y = y;
 	board[y * width + x] = 1;
 }
-void freeSnake(snake* snake){
+static void freeSnake(snake* snake){
 	if(snake->tail)
 		freeSnake(snake->tail);
 	free(snake);
 }
-snake* initSnake(int x, int y){
+static snake* initSnake(int x, int y){
 	snake* foo = (snake*)(malloc(sizeof(snake)));
 	foo->x = x;
 	foo->y = y;
@@ -95,14 +95,14 @@ snake* initSnake(int x, int y){
 	return foo;
 }
 
-WINDOW* win = NULL, *scoreboard = NULL;
-int keepRunning = 1;
+static WINDOW* win = NULL, *scoreboard = NULL;
+static int keepRunning = 1;
 
-void gameover(){
+static void gameover(){
 	timeout(10000);
 	keepRunning = 0;
 }
-void drawSnake(int prev, snake* curr){
+static void drawSnake(int prev, snake* curr){
 	int draw_sides[4];
 	draw_sides[0] = draw_sides[1] = draw_sides[2] = draw_sides[3] = 1;
 	int nprev = -1;
@@ -183,13 +183,13 @@ void drawSnake(int prev, snake* curr){
 		}
 	}
 }
-void drawPoints(){
+static void drawPoints(){
 	for(int i = 0; i < NUM_POINTS; i++){
 		mvwaddch(win, points[i].y, points[i].x, '*');
 	}
 }
 
-int currdirx = 2, currdiry = 0;
+static int currdirx = 2, currdiry = 0;
 void runSnake(int maxscore){
 	timeout(70);
 	refresh();
