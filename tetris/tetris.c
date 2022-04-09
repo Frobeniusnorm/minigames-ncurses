@@ -3,9 +3,12 @@
 #include <stdlib.h>
 #include <time.h>
 #include <math.h>
+#include <unistd.h>
 #define WIDTH 50
 #define HEIGHT 40
 #define LVL_UP 3200
+#define NUM_TYPES 5
+#define NUM_COLORS 6
 #define MIN(X, Y) (((X) < (Y)) ? (X) : (Y))
 #define MAX(X, Y) (((X) > (Y)) ? (X) : (Y))
 typedef struct Block{
@@ -25,7 +28,8 @@ static Form* current;
 static Block* data[WIDTH/2][HEIGHT];
 static Block* previewData[5][5];
 static int writeToData = 1;
-
+static int keepRunning = 1;
+static int gameOver = 0;
 //point
 static int score = 0;
 static int level = 0;
@@ -342,8 +346,15 @@ static void newForm(){
 		current->blocks[i].y = current->y;
 		current->blocks[i].color = current->color;
 	}
-	newType = rand() % 5 + 1;
-	newColor = rand() % 4 + 1;
+	writeToData = 0;
+	drawFigure(current);
+	writeToData = 1;
+	if(!collisionDetection(current, 0, 0)){
+		keepRunning = 0;
+		gameOver = 1;
+	}
+	newType = rand() % NUM_TYPES + 1;
+	newColor = rand() % NUM_COLORS + 1;
 }
 static void rotate(Form* f){
 	writeToData = 0;
@@ -382,7 +393,7 @@ static void logicTick(int c){
 		case KEY_DOWN:
 			if(!mvy){
 				mvy = 1;
-				score += 3;
+				score += 1;
 				level = score/LVL_UP;
 				drawScoreView();
 			}
@@ -437,8 +448,14 @@ static void logicTick(int c){
 
 }
 
-static int keepRunning = 1;
 void runTetris(int maxscore){
+	keepRunning = 1;
+	gameOver = 0;
+	score = 0;
+	level = 0;
+	writeToData = 1;
+	newType = rand() % NUM_TYPES + 1;
+	newColor = rand() % NUM_COLORS + 1;
 	clear();
 	field = newwin(HEIGHT, WIDTH, 0, 0);
 	preview = newwin(6, 20, 0, WIDTH + 1);
@@ -456,6 +473,8 @@ void runTetris(int maxscore){
 	init_pair(2, COLOR_GREEN, COLOR_GREEN);
 	init_pair(3, COLOR_BLUE, COLOR_BLUE);
 	init_pair(4, COLOR_CYAN, COLOR_CYAN);
+	init_pair(5, COLOR_YELLOW, COLOR_YELLOW);
+	init_pair(6, COLOR_MAGENTA, COLOR_MAGENTA);
 	newForm();
 	refresh();
 	int sx = current->x, sy = current->y;
@@ -470,6 +489,15 @@ void runTetris(int maxscore){
 		sx = MIN(WIDTH/2 - 6, MAX(1, current->x)); sy = MIN(HEIGHT - 6, MAX(1, current->y));
 		mvwin(currView, sy, sx * 2);
 		drawField(sx, sy);
+	}
+	if(gameOver){
+		timeout(100000);
+		mvwprintw(field, HEIGHT/2-1, WIDTH/2-4, "GAME OVER");
+		mvwprintw(field, HEIGHT/2, WIDTH/2-5, "score: %d", score);
+		mvwprintw(field, HEIGHT/2 + 1, WIDTH/2-8, "[press any button]");
+		wrefresh(field);
+		sleep(1);
+		getch();
 	}
 	//cleanup
 	for(ToFree* i = freeing; i != NULL;){

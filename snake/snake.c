@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include <math.h>
-
+#include <unistd.h>
 #define MIN(X, Y) (((X) < (Y)) ? (X) : (Y))
 #define MAX(X, Y) (((X) > (Y)) ? (X) : (Y))
 #define NUM_POINTS 5
@@ -18,7 +18,7 @@ typedef struct point{
 static void gameover();
 static char* board;
 static point points[5];
-static int score = 0;          
+static int score = 0;
 static int width, height;
 static snake* snake_obj;
 static void newPoint(point* p){
@@ -261,6 +261,7 @@ void runSnake(int maxscore){
 	mvwprintw(win, height/2, width/2-7, "[press any button]");
 	wattroff(win, COLOR_PAIR(3));
 	wrefresh(win);
+	sleep(1);
 	getch();
 	//cleanup
 	score = 0;
