@@ -21,9 +21,13 @@ typedef struct Form{
 static WINDOW *field, *preview, *currView;
 static Form* current;
 static Block* data[WIDTH/2][HEIGHT];
+static Block* previewData[5][5];
 static int writeToData = 1;
 static void setBlock(Block* b, const int y, const int x){
-	if(writeToData) data[x][y] = b;
+	if(writeToData == 1) data[x][y] = b;
+	else if(writeToData == 2){
+		previewData[x][y] = b;
+	}
 	b->x = x;
 	b->y = y;
 }
@@ -168,8 +172,8 @@ static void drawField(const int sx, const int sy){
 	wclear(currView);
 	int currcol = 1;
 	wattron(currView, COLOR_PAIR(currcol));
-	for(int x = sx; x < sx + 10; x++){
-		for(int y = sy; y < sy + 6; y++){
+	for(int x = sx; x < sx + 5; x++){
+		for(int y = sy; y < sy + 5; y++){
 			if(x >= 0 && x < WIDTH/2 && y >= 0 && y < HEIGHT && data[x][y]){
 				if(currcol != data[x][y]->color){
 					wattroff(currView, COLOR_PAIR(currcol));
@@ -184,34 +188,80 @@ static void drawField(const int sx, const int sy){
 	wattroff(currView, COLOR_PAIR(currcol));
 	wrefresh(currView);
 }
-static void drawPreview(){
-	wclear(preview);
-	box(preview, 0, 0);
-
-	wrefresh(preview);
-}
-static void drawFigure(){
+static void drawFigure(Form* fig){
 	for(int i = 0; i < 4; i++){
-		Block* b = &current->blocks[i];
-		data[b->x][b->y] = NULL;
+		Block* b = &fig->blocks[i];
+		if(writeToData == 2) previewData[b->x][b->y] = NULL;
+		else data[b->x][b->y] = NULL;
 	}
-	switch(current->type){
+	switch(fig->type){
 		case 1:
-			drawFigure1(current);
+			drawFigure1(fig);
 			break;
 		case 2:
-			drawFigure2(current);
+			drawFigure2(fig);
 			break;
 		case 3:
-			drawFigure3(current);
+			drawFigure3(fig);
 			break;
 		case 4:
-			drawFigure4(current);
+			drawFigure4(fig);
 			break;
 		case 5:
-			drawFigure5(current);
+			drawFigure5(fig);
 			break;
 	}
+}
+static int newType = 1;
+static int newColor = 1;
+
+static void drawPreview(){
+	wclear(preview);
+	//clear field
+	for(int x = 0; x < 5; x++){
+		for(int y = 0; y < 5; y++){
+			previewData[x][y] = 0;
+		}
+	}
+	box(preview, 0, 0);
+	writeToData = 2;
+
+
+	Form* next = (Form*)malloc(sizeof(Form));
+	next->x = 0;
+	next->y = 0;
+	next->color = newColor;
+	next->type = newType;
+	next->rotation = 0;
+	for(int i = 0; i < 4; i++){
+		next->blocks[i].color = newColor;
+		next->blocks[i].x = 0;
+		next->blocks[i].y = 0;
+	}
+	drawFigure(next);
+	writeToData = 1;
+	//actually draw it
+	int xoff = next->type == 2 ? 4 : next->type == 3 || next->type == 1 ? 6 : 5;
+	int yoff = next->type == 2 ? 0 : 1;
+	int currcol = 1;
+	wattron(preview, COLOR_PAIR(currcol));
+	for(int x = 0; x < 5; x++){
+		for(int y = 0; y < 5; y++){
+			Block* cell = previewData[x][y];
+			if(cell){
+				if(currcol != cell->color){
+					wattroff(preview, COLOR_PAIR(currcol));
+					currcol = cell->color;
+					wattron(preview, COLOR_PAIR(currcol));
+				}
+				mvwaddch(preview, cell->y + yoff, (cell->x) * 2 + xoff, ' ');
+				mvwaddch(preview, cell->y + yoff, (cell->x) * 2 + xoff + 1, ' ');
+			}
+		}
+	}
+	free(next);
+	wattroff(preview, COLOR_PAIR(currcol));
+	wrefresh(preview);
 }
 static int collisionDetection(Form* f, int mvx, int mvy){
 	for(int i = 0; i < 4; i++){
@@ -236,8 +286,6 @@ static int collisionDetection(Form* f, int mvx, int mvy){
 	}
 	return 1;
 }
-static int newType = 1;
-static int newColor = 1;
 typedef struct ToFree{
 		Form* tofree;
 		struct ToFree* next;
@@ -266,12 +314,12 @@ static void rotate(Form* f){
 	writeToData = 0;
 	int oldRotation = f->rotation;
 	f->rotation = (current->rotation + 1) % 4;
-	drawFigure(); //rotate without writing
+	drawFigure(current); //rotate without writing
 	int res = collisionDetection(f, 0, 0);
 	if(!res)	//if it didnt work reset
 		f->rotation = oldRotation;
 	writeToData = 1;
-	drawFigure(); //write out
+	drawFigure(current); //write out
 
 }
 static uint64_t lastTick = 0;
@@ -300,12 +348,12 @@ static void logicTick(int c){
 	}
 	if(collisionDetection(current, mvx, 0)){
 		current->x += mvx;
-		drawFigure();
+		drawFigure(current);
 	}
 	if(mvy > 0){
 		if(collisionDetection(current, 0, mvy)){
 			current->y += mvy;
-			drawFigure();
+			drawFigure(current);
 		}else{
 			//it is set, we can check for the lines and generate a new form
 			for(int i = 0; i < 4; i++){
@@ -343,10 +391,13 @@ void runTetris(int maxscore){
 	clear();
 	field = newwin(HEIGHT, WIDTH, 0, 0);
 	preview = newwin(20, 20, 0, WIDTH + 1);
-	currView = newwin(4, 8, 0, 0);
+	currView = newwin(5, 10, 0, 0);
 	for (int i = 0; i < WIDTH/2; i++)
 		for (int j = 0; j < HEIGHT; j++)
 			data[i][j] = NULL;
+	for(int i = 0; i < 8; i++)
+		for(int j = 0; j < 4; j++)
+			previewData[i][j] = NULL;
 
 	timeout(70);
 	init_pair(1, COLOR_RED, COLOR_RED);
@@ -362,7 +413,7 @@ void runTetris(int maxscore){
 	for(int ch; keepRunning && (ch = getch()) != 'q';){
 		logicTick(ch);
 		drawField(sx, sy);
-		sx = MIN(WIDTH/2 - 5, MAX(1, current->x)); sy = MIN(HEIGHT - 5, MAX(1, current->y));
+		sx = MIN(WIDTH/2 - 6, MAX(1, current->x)); sy = MIN(HEIGHT - 6, MAX(1, current->y));
 		mvwin(currView, sy, sx * 2);
 		drawField(sx, sy);
 		drawPreview();
