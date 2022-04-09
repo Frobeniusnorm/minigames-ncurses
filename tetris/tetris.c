@@ -4,7 +4,8 @@
 #include <time.h>
 #define WIDTH 50
 #define HEIGHT 40
-#
+#define MIN(X, Y) (((X) < (Y)) ? (X) : (Y))
+#define MAX(X, Y) (((X) > (Y)) ? (X) : (Y))
 typedef struct Block{
 	short x, y;
 	short color;
@@ -17,7 +18,7 @@ typedef struct Form{
 	int color;
 } Form;
 
-static WINDOW *field, *preview;
+static WINDOW *field, *preview, *currView;
 static Form* current;
 static Block* data[WIDTH/2][HEIGHT];
 static int writeToData = 1;
@@ -163,26 +164,25 @@ static void drawFigure5(Form* form){
 			break;
 	}
 }
-static void drawField(){
-	wclear(field);
-	box(field, 0, 0);
+static void drawField(const int sx, const int sy){
+	wclear(currView);
 	int currcol = 1;
-	wattron(field, COLOR_PAIR(currcol));
-	for(int x = 0; x < WIDTH/2; x++){
-		for(int y = 0; y < HEIGHT; y++){
-			if(data[x][y]){
+	wattron(currView, COLOR_PAIR(currcol));
+	for(int x = sx; x < sx + 10; x++){
+		for(int y = sy; y < sy + 6; y++){
+			if(x >= 0 && x < WIDTH/2 && y >= 0 && y < HEIGHT && data[x][y]){
 				if(currcol != data[x][y]->color){
-					wattroff(field, COLOR_PAIR(currcol));
+					wattroff(currView, COLOR_PAIR(currcol));
 					currcol = data[x][y]->color;
-					wattron(field, COLOR_PAIR(currcol));
+					wattron(currView, COLOR_PAIR(currcol));
 				}
-				mvwaddch(field, data[x][y]->y, data[x][y]->x * 2, ' ');
-				mvwaddch(field, data[x][y]->y, data[x][y]->x * 2 + 1, ' ');
+				mvwaddch(currView, data[x][y]->y-sy, (data[x][y]->x-sx) * 2, ' ');
+				mvwaddch(currView, data[x][y]->y-sy, (data[x][y]->x-sx) * 2 + 1, ' ');
 			}
 		}
 	}
-	wattroff(field, COLOR_PAIR(currcol));
-	wrefresh(field);
+	wattroff(currView, COLOR_PAIR(currcol));
+	wrefresh(currView);
 }
 static void drawPreview(){
 	wclear(preview);
@@ -343,7 +343,7 @@ void runTetris(int maxscore){
 	clear();
 	field = newwin(HEIGHT, WIDTH, 0, 0);
 	preview = newwin(20, 20, 0, WIDTH + 1);
-
+	currView = newwin(4, 8, 0, 0);
 	for (int i = 0; i < WIDTH/2; i++)
 		for (int j = 0; j < HEIGHT; j++)
 			data[i][j] = NULL;
@@ -355,9 +355,16 @@ void runTetris(int maxscore){
 	init_pair(4, COLOR_CYAN, COLOR_CYAN);
 	newForm();
 	refresh();
+	int sx = current->x, sy = current->y;
+	mvwin(currView, sy, sx * 2);
+	box(field, 0, 0);
+	wrefresh(field);
 	for(int ch; keepRunning && (ch = getch()) != 'q';){
 		logicTick(ch);
-		drawField();
+		drawField(sx, sy);
+		sx = MIN(WIDTH/2 - 5, MAX(1, current->x)); sy = MIN(HEIGHT - 5, MAX(1, current->y));
+		mvwin(currView, sy, sx * 2);
+		drawField(sx, sy);
 		drawPreview();
 	}
 	//cleanup
@@ -367,6 +374,7 @@ void runTetris(int maxscore){
 		i = i->next;
 		free(k);
 	}
+	delwin(currView);
 	delwin(field);
 	delwin(preview);
 }
