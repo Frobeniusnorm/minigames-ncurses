@@ -5,6 +5,7 @@
 #include <math.h>
 #define WIDTH 50
 #define HEIGHT 40
+#define LVL_UP 3200
 #define MIN(X, Y) (((X) < (Y)) ? (X) : (Y))
 #define MAX(X, Y) (((X) > (Y)) ? (X) : (Y))
 typedef struct Block{
@@ -363,7 +364,8 @@ static void logicTick(int c){
 	uint64_t nanos = time.tv_nsec;
 
 	int mvx = 0, mvy = 0;
-	if(nanos - lastTick > 500000000){
+	long timeDiff = level < 20 ? 500000000 - level * 20000000 : 80000000;
+	if(nanos - lastTick > timeDiff){
 		mvy = 1;
 		lastTick = nanos;
 	}
@@ -378,7 +380,12 @@ static void logicTick(int c){
 			mvx = 1;
 			break;
 		case KEY_DOWN:
-			mvy = 1;
+			if(!mvy){
+				mvy = 1;
+				score += 3;
+				level = score/LVL_UP;
+				drawScoreView();
+			}
 	}
 	if(collisionDetection(current, mvx, 0)){
 		current->x += mvx;
@@ -419,6 +426,7 @@ static void logicTick(int c){
 			}
 			if(linesCleared > 0){
 				score += 50 * (linesCleared == 1 ? 1 : linesCleared == 2 ? 3 : linesCleared == 3 ? 5 : 7) * (level + 1);
+				level = score/LVL_UP;
 				drawScoreView();
 			}
 			newForm();
