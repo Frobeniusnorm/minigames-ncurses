@@ -2,6 +2,7 @@
 #include <ncurses.h>
 #include <stdlib.h>
 #include <time.h>
+#include <math.h>
 #define WIDTH 50
 #define HEIGHT 40
 #define MIN(X, Y) (((X) < (Y)) ? (X) : (Y))
@@ -18,11 +19,16 @@ typedef struct Form{
 	int color;
 } Form;
 
-static WINDOW *field, *preview, *currView;
+static WINDOW *field, *preview, *currView, *scoreView;
 static Form* current;
 static Block* data[WIDTH/2][HEIGHT];
 static Block* previewData[5][5];
 static int writeToData = 1;
+
+//point
+static int score = 0;
+static int level = 0;
+
 static void setBlock(Block* b, const int y, const int x){
 	if(writeToData == 1) data[x][y] = b;
 	else if(writeToData == 2){
@@ -188,6 +194,27 @@ static void drawField(const int sx, const int sy){
 	wattroff(currView, COLOR_PAIR(currcol));
 	wrefresh(currView);
 }
+static void drawCompleteField(){
+	wclear(field);
+	box(field, 0, 0);
+	int currcol = 1;
+	wattron(field, COLOR_PAIR(currcol));
+	for(int x = 0; x < WIDTH/2; x++){
+		for(int y = 0; y < HEIGHT; y++){
+			if(data[x][y]){
+				if(currcol != data[x][y]->color){
+					wattroff(field, COLOR_PAIR(currcol));
+					currcol = data[x][y]->color;
+					wattron(field, COLOR_PAIR(currcol));
+				}
+				mvwaddch(field, data[x][y]->y, (data[x][y]->x) * 2, ' ');
+				mvwaddch(field, data[x][y]->y, (data[x][y]->x) * 2 + 1, ' ');
+			}
+		}
+	}
+	wattroff(field, COLOR_PAIR(currcol));
+	wrefresh(field);
+}
 static void drawFigure(Form* fig){
 	for(int i = 0; i < 4; i++){
 		Block* b = &fig->blocks[i];
@@ -262,6 +289,13 @@ static void drawPreview(){
 	free(next);
 	wattroff(preview, COLOR_PAIR(currcol));
 	wrefresh(preview);
+}
+static void drawScoreView(){
+	wclear(scoreView);
+	box(scoreView, 0, 0);
+	mvwprintw(scoreView, 1, 2, "Score: %d", score);
+	mvwprintw(scoreView, 3, 2, "Level: %d", level);
+	wrefresh(scoreView);
 }
 static int collisionDetection(Form* f, int mvx, int mvy){
 	for(int i = 0; i < 4; i++){
@@ -356,6 +390,7 @@ static void logicTick(int c){
 			drawFigure(current);
 		}else{
 			//it is set, we can check for the lines and generate a new form
+			int linesCleared = 0;
 			for(int i = 0; i < 4; i++){
 				int y = current->blocks[i].y;
 				//did we already check for that?
@@ -373,14 +408,22 @@ static void logicTick(int c){
 							break;
 						}
 					if(full){
+						linesCleared++;
 						for(int j = 1; j < WIDTH/2 - 2; j++)
 							for(int k = y; k >= 0; k--){
 								data[j][k] = k == 0 ? NULL : data[j][k-1];
-								if(data[j][k]) data[j][k]->y++;							}
+								if(data[j][k]) data[j][k]->y++;
+							}
 					}
 				}
 			}
+			if(linesCleared > 0){
+				score += 50 * (linesCleared == 1 ? 1 : linesCleared == 2 ? 3 : linesCleared == 3 ? 5 : 7) * (level + 1);
+				drawScoreView();
+			}
 			newForm();
+			drawPreview();
+			drawCompleteField();
 		}
 	}
 
@@ -390,8 +433,9 @@ static int keepRunning = 1;
 void runTetris(int maxscore){
 	clear();
 	field = newwin(HEIGHT, WIDTH, 0, 0);
-	preview = newwin(20, 20, 0, WIDTH + 1);
+	preview = newwin(6, 20, 0, WIDTH + 1);
 	currView = newwin(5, 10, 0, 0);
+	scoreView = newwin(8, 20, 7, WIDTH + 1);
 	for (int i = 0; i < WIDTH/2; i++)
 		for (int j = 0; j < HEIGHT; j++)
 			data[i][j] = NULL;
@@ -410,13 +454,14 @@ void runTetris(int maxscore){
 	mvwin(currView, sy, sx * 2);
 	box(field, 0, 0);
 	wrefresh(field);
+	drawScoreView();
+	drawPreview();
 	for(int ch; keepRunning && (ch = getch()) != 'q';){
 		logicTick(ch);
 		drawField(sx, sy);
 		sx = MIN(WIDTH/2 - 6, MAX(1, current->x)); sy = MIN(HEIGHT - 6, MAX(1, current->y));
 		mvwin(currView, sy, sx * 2);
 		drawField(sx, sy);
-		drawPreview();
 	}
 	//cleanup
 	for(ToFree* i = freeing; i != NULL;){
@@ -425,6 +470,7 @@ void runTetris(int maxscore){
 		i = i->next;
 		free(k);
 	}
+	delwin(scoreView);
 	delwin(currView);
 	delwin(field);
 	delwin(preview);
