@@ -6,7 +6,7 @@
 #include <unistd.h>
 #define WIDTH 50
 #define HEIGHT 40
-#define LVL_UP 3200
+#define LVL_UP 500
 #define NUM_TYPES 5
 #define NUM_COLORS 6
 #define MIN(X, Y) (((X) < (Y)) ? (X) : (Y))
