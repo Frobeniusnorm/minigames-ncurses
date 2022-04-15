@@ -6,8 +6,8 @@
 #include <unistd.h>
 #define WIDTH 50
 #define HEIGHT 40
-#define LVL_UP 500
-#define NUM_TYPES 5
+#define LVL_UP 3200
+#define NUM_TYPES 7
 #define NUM_COLORS 6
 #define MIN(X, Y) (((X) < (Y)) ? (X) : (Y))
 #define MAX(X, Y) (((X) > (Y)) ? (X) : (Y))
@@ -179,6 +179,62 @@ static void drawFigure5(Form* form){
 			break;
 	}
 }
+/*
+##
+ ##
+*/
+static void drawFigure6(Form* form){
+	int x = form->x;
+	int y = form->y;
+	int rotation = form->rotation;
+	int blockidx = 0;
+	int start = 0;
+	int off = -1;
+	switch(rotation){
+		case 0:
+			start = 1;
+			off = 1;
+		case 2:
+			for(int i = 0; i < 4; i++)
+				setBlock(&form->blocks[blockidx++], y + 1 + (i > 1 ? off : 0), x + i+start + (i > 1 ? -1 : 0));
+			break;
+		case 1:
+			start = 1;
+			off = 1;
+		case 3:
+			for(int i = 0; i < 4; i++)
+				setBlock(&form->blocks[blockidx++], y + i+start + (i > 1 ? -1 : 0), x + 1 + (i > 1 ? off : 0));
+			break;
+	}
+}
+/*
+ ##
+##
+*/
+static void drawFigure7(Form* form){
+	int x = form->x;
+	int y = form->y;
+	int rotation = form->rotation;
+	int blockidx = 0;
+	int start = 0;
+	int off = -1;
+	switch(rotation){
+		case 0:
+			start = 1;
+			off = 1;
+		case 2:
+			for(int i = 0; i < 4; i++)
+				setBlock(&form->blocks[blockidx++], y + 1 + (i > 1 ? 0 : off), x + i+start + (i > 1 ? -1 : 0));
+			break;
+		case 1:
+			start = 1;
+			off = 1;
+		case 3:
+			for(int i = 0; i < 4; i++)
+				setBlock(&form->blocks[blockidx++], y + i+start + (i > 1 ? -1 : 0), x + 1 + (i > 1 ? 0 : off));
+			break;
+	}
+}
 static void drawField(const int sx, const int sy){
 	wclear(currView);
 	int currcol = 1;
@@ -241,6 +297,12 @@ static void drawFigure(Form* fig){
 			break;
 		case 5:
 			drawFigure5(fig);
+			break;
+		case 6:
+			drawFigure6(fig);
+			break;
+		case 7:
+			drawFigure7(fig);
 			break;
 	}
 }
