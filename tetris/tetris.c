@@ -189,21 +189,18 @@ static void drawFigure6(Form* form){
 	int rotation = form->rotation;
 	int blockidx = 0;
 	int start = 0;
-	int off = -1;
 	switch(rotation){
 		case 0:
 			start = 1;
-			off = 1;
 		case 2:
 			for(int i = 0; i < 4; i++)
-				setBlock(&form->blocks[blockidx++], y + 1 + (i > 1 ? off : 0), x + i+start + (i > 1 ? -1 : 0));
+				setBlock(&form->blocks[blockidx++], y + 1 + (i > 1 ? 1 : 0), x + i+start + (i > 1 ? -1 : 0));
 			break;
 		case 1:
 			start = 1;
-			off = 1;
 		case 3:
 			for(int i = 0; i < 4; i++)
-				setBlock(&form->blocks[blockidx++], y + i+start + (i > 1 ? -1 : 0), x + 1 + (i > 1 ? off : 0));
+				setBlock(&form->blocks[blockidx++], y + i+start + (i > 1 ? -1 : 0), x + 1 + (i > 1 ? -1 : 0));
 			break;
 	}
 }
@@ -217,21 +214,18 @@ static void drawFigure7(Form* form){
 	int rotation = form->rotation;
 	int blockidx = 0;
 	int start = 0;
-	int off = -1;
 	switch(rotation){
 		case 0:
 			start = 1;
-			off = 1;
 		case 2:
 			for(int i = 0; i < 4; i++)
-				setBlock(&form->blocks[blockidx++], y + 1 + (i > 1 ? 0 : off), x + i+start + (i > 1 ? -1 : 0));
+				setBlock(&form->blocks[blockidx++], y + 1 + (i > 1 ? 0 : 1), x + i+start + (i > 1 ? -1 : 0));
 			break;
 		case 1:
 			start = 1;
-			off = 1;
 		case 3:
 			for(int i = 0; i < 4; i++)
-				setBlock(&form->blocks[blockidx++], y + i+start + (i > 1 ? -1 : 0), x + 1 + (i > 1 ? 0 : off));
+				setBlock(&form->blocks[blockidx++], y + i+start + (i > 1 ? -1 : 0), x + 1 + (i > 1 ? 0 : -1));
 			break;
 	}
 }
