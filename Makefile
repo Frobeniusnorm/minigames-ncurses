@@ -1,6 +1,6 @@
 CC = gcc -Werror -Wpedantic -Wall -c
 CFLAGS = -lncursesw
-minigames: build/snake.o build/tetris.o build/main.o
+minigames: build/snake.o build/tetris.o build/main.o | build
 	gcc -o minigames build/snake.o build/tetris.o build/main.o $(CFLAGS)
 
 build/snake.o: snake/snake.c snake/snake.h
@@ -11,3 +11,6 @@ build/tetris.o: tetris/tetris.c tetris/tetris.h
 
 build/main.o: main.c snake/snake.h tetris/tetris.h
 	$(CC) -o build/main.o main.c
+
+build:
+	mkdir build
