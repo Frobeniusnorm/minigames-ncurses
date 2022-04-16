@@ -3,8 +3,8 @@
 #include <time.h>
 #include "snake/snake.h"
 #include "tetris/tetris.h"
-
-static const char* choices[] = {"Snake", "Tetris", "Exit"};
+#include "pacman/pacman.h"
+static const char* choices[] = {"Snake", "Tetris", "Pacman", "Exit"};
 static const int num_choices = (sizeof(choices) / sizeof(char*));
 static void printMenu(WINDOW* win, int currentChoice){
   wclear(win);
@@ -48,6 +48,10 @@ static void initMenu(){
       			startedGame = 1;
             break;
           case 2:
+      		  runPacman(0);
+      			startedGame = 1;
+            break;
+          case 3:
             delwin(menu);
             refresh();
             return;
@@ -64,19 +68,19 @@ static void initMenu(){
 }
 
 int main(){
-  	srand(time(0));
+  srand(time(0));
 	initscr();
   	if(!has_colors()){
     	endwin();
 		printf("Your terminal does not support colors!\n");
 		exit(-1);
 	}
-  	start_color();
+  start_color();
 	cbreak();
 	noecho();
 	keypad(stdscr, TRUE); //make keys work
 	curs_set(0); //hide cursor
-  	initMenu();
+  initMenu();
 
 	endwin();
 }
