@@ -194,6 +194,8 @@ void runSnake(int maxscore){
 	timeout(70);
 	refresh();
 	getmaxyx(stdscr, height, width);
+	init_color(COLOR_GREEN, 200, 900, 200);
+	init_color(COLOR_RED, 900, 200, 200);
 	init_pair(1, COLOR_GREEN, COLOR_BLACK);
 	init_pair(2, COLOR_RED, COLOR_BLACK);
 	init_color(COLOR_BLACK, 0, 0, 0);

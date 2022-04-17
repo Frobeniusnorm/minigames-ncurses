@@ -525,6 +525,12 @@ void runTetris(int maxscore){
 			previewData[i][j] = NULL;
 
 	timeout(70);
+	init_color(COLOR_RED, 900, 0, 0);
+	init_color(COLOR_GREEN, 100, 800, 0);
+	init_color(COLOR_BLUE, 0, 0, 900);
+	init_color(COLOR_CYAN, 0, 800, 800);
+	init_color(COLOR_MAGENTA, 700, 0, 700);
+	init_color(COLOR_YELLOW, 950, 900, 400);
 	init_pair(1, COLOR_RED, COLOR_RED);
 	init_pair(2, COLOR_GREEN, COLOR_GREEN);
 	init_pair(3, COLOR_BLUE, COLOR_BLUE);
