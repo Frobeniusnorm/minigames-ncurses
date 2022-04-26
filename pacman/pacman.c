@@ -92,7 +92,11 @@ static void drawField(WINDOW* win){
             waddch(win, ACS_TTEE);
             break;
           case '*':
+            wattroff(win, COLOR_PAIR(1));
+            wattron(win, COLOR_PAIR(2));
             waddch(win, '*');
+            wattroff(win, COLOR_PAIR(2));
+            wattron(win, COLOR_PAIR(1));
             break;
           case 'p':
             wattroff(win, COLOR_PAIR(1));

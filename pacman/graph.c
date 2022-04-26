@@ -61,6 +61,8 @@ static void pop(vec2i* arr, int* size, vec2i* res){
   res->score = arr[0].score;
   res->x = arr[0].x;
   res->y = arr[0].y;
+  res->prev_x = arr[0].prev_x;
+  res->prev_y = arr[0].prev_y;
   arr[0] = arr[--(*size)];
   seepDown(arr, *size, 0);
 }
@@ -84,8 +86,8 @@ Way aStar(int starty, int startx, int goaly, int goalx, char* pacmanField, int h
   vec2i* allnodes = calloc(height * width, sizeof(vec2i));
   char* visited = calloc(height * width, sizeof(char));
   //init
-  vec2i start = {.distance = 0, .x = startx, .y = starty, .score = 0};
-
+  vec2i start = {.distance = 0, .x = startx, .y = starty, .score = 0, .prev_x = -1, .prev_y = -1};
+  allnodes[starty * width + startx] = start;
   vec2i* queue = newMinHeap(start);
   int size = 1;
   Way res;
@@ -95,20 +97,21 @@ Way aStar(int starty, int startx, int goaly, int goalx, char* pacmanField, int h
     vec2i curr;
     pop(queue, &size, &curr);
     if(curr.x == goalx && curr.y == goaly){
+      curr = allnodes[curr.y * width + curr.x]; //to have newest predecessor
       //determine size
       long nodecount = 0;
-      for(vec2i i = curr; i.prev_x != 0;){
-        i = allnodes[curr.prev_y*width + curr.prev_x];
+      for(vec2i i = curr; i.prev_x >= 0;){
+        i = allnodes[i.prev_y*width + i.prev_x];
         nodecount++;
       }
       //build way
       res.way = malloc(nodecount * 2 * sizeof(int));
       res.size = nodecount;
       int index = 0;
-      for(vec2i i = curr; i.prev_x != 0;){
-        i = allnodes[curr.prev_y*width + curr.prev_x];
+      for(vec2i i = curr; i.prev_x >= 0;){
         res.way[index] = i.y;
         res.way[index + 1] = i.x;
+        i = allnodes[i.prev_y*width + i.prev_x];
         index += 2;
       }
       break;
@@ -141,19 +144,24 @@ Way aStar(int starty, int startx, int goaly, int goalx, char* pacmanField, int h
         if(visited[cy * width + cx]) continue;
         int newdis = curr.distance + 1;
         int xdiff = goalx - cx, ydiff = goaly - cy;
-        double newscore = curr.distance + 1 + sqrt(xdiff * xdiff + ydiff * ydiff);
+        double newscore = newdis + sqrt(xdiff * xdiff + ydiff * ydiff);
         //check if already present
         vec2i* el = &allnodes[cy * width + cx];
+        //if not present
         if(el->distance == 0){ //legit check, since the first node is already visited and only one with distance = 0
           el->x = cx;
           el->y = cy;
           el->distance = newdis;
           el->score = newscore;
+          el->prev_x = curr.x;
+          el->prev_y = curr.y;
           enqueue(&queue, &size, *el);
-        }else{
-          if(el->score > newscore && !visited[el->y * width + el->x]){ //update
+        }else{ //if present
+          if(el->score > newscore){ //update when better
             el->distance = newdis;
             el->score = newscore;
+            el->prev_x = curr.x;
+            el->prev_y = curr.y;
             update(queue, size, el->y, el->x, newdis, newscore);
           }
         }
