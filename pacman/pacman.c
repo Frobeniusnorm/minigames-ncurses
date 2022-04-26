@@ -1,4 +1,5 @@
 #include "pacman.h"
+#include "graph.h"
 #include <stdio.h>
 #include <ncurses.h>
 #include <stdlib.h>
@@ -47,7 +48,7 @@ typedef struct Pacman{
   Direction dir;
 } Pacman;
 static Pacman pacman;
-
+static int mouthOpen = 0;
 static int canMove(int y, int x){
   if(y < 0 || x < 0 || y >= HEIGHT || x >= WIDTH) return true; //for teleporting
   char a = map[y][x];
@@ -90,10 +91,25 @@ static void drawField(WINDOW* win){
           case 'T':
             waddch(win, ACS_TTEE);
             break;
+          case '*':
+            waddch(win, '*');
+            break;
           case 'p':
             wattroff(win, COLOR_PAIR(1));
             wattron(win, COLOR_PAIR(3));
-            waddch(win, 'o');
+            char pacchar = 'o';
+            if(mouthOpen >= 4){
+              switch(pacman.dir){
+                case DOWN: pacchar = '^'; break;
+                case LEFT: pacchar = '>'; break;
+                case RIGHT: pacchar = '<'; break;
+                case UP: pacchar = 'v'; break;
+                case NONE:
+                default:
+                break;
+              }
+            }
+            waddch(win, pacchar);
             wattroff(win, COLOR_PAIR(3));
             wattron(win, COLOR_PAIR(1));
         }
@@ -102,6 +118,24 @@ static void drawField(WINDOW* win){
   }
   wrefresh(win);
 }
+static void findWay(int sy, int sx, int gy, int gx){
+  //clear field
+  for(int i = 0; i < HEIGHT; i++)
+    for(int j = 0; j < WIDTH; j++)
+      if(map[i][j] == '*')
+        map[i][j] = ' ';
+
+  //find Way
+  Way w = aStar(sy, sx, gy, gx, &map[0][0], HEIGHT, WIDTH);
+  mvprintw(5, WIDTH + 3, "size: %d\n", w.size);
+  for(int i = 0; i < w.size; i++){
+    int y = w.way[i*2];
+    int x = w.way[i*2 + 1];
+    map[y][x] = '*';
+  }
+  free(w.way);
+}
+
 static void translateDir(Direction dir, int* mvy, int* mvx){
   switch(dir){
     case UP:
@@ -129,7 +163,7 @@ static void translateDir(Direction dir, int* mvy, int* mvx){
 static void gameLogic(int doYTick){
   int mvx, mvy;
   //check for desired dir
-  if(pacman.desiredDir != NONE && pacman.desiredDir != pacman.dir && (pacman.desiredDir - 1) != (pacman.dir + 1) % 4){
+  if(pacman.desiredDir != NONE && pacman.desiredDir != pacman.dir){
     translateDir(pacman.desiredDir, &mvy, &mvx);
     if(canMove(pacman.y + mvy, pacman.x + mvx)){
       pacman.dir = pacman.desiredDir;
@@ -148,6 +182,8 @@ static void gameLogic(int doYTick){
 
     map[pacman.y][pacman.x] = 'p';
   }
+  //visualize way
+  findWay(1, 2, pacman.y, pacman.x);
 }
 void runPacman(int highscore){
   timeout(1);
@@ -206,6 +242,7 @@ void runPacman(int highscore){
       gameLogic(doYTick);
       //only move every second frame on y
       doYTick = (doYTick + 1) % 2;
+      mouthOpen = (mouthOpen + 1) % 8;
       wclear(win);
       drawField(win);
       nanos = curr;
