@@ -127,18 +127,15 @@ Way aStar(int starty, int startx, int goaly, int goalx, char* pacmanField, int h
       int cx = curr.x + offsets[i][1];
       if(cy < height && cy >= 0 && cx < width && cx >= 0){
         //check if visitable
-        // int doVisit = 1;
-        // for(int off = -1; off <= 1; off++){
-        //   int ny = cy + off, nx = cx + off;
-        //   if(ny < height && ny >= 0 && !isVisitable(pacmanField[ny*width + cx])){
-        //     doVisit = 0;
-        //     break;
-        //   }
-        //   if(nx < width && nx >= 0 && !isVisitable(pacmanField[cy*width + nx])){
-        //     doVisit = 0;
-        //     break;
-        //   }
-        // }
+        int doVisit = 1;
+        for(int off = -1; off <= 1; off+=2){
+          int nx = cx + off;
+          if(nx < width && nx >= 0 && !isVisitable(pacmanField[cy*width + nx])){
+            doVisit = 0;
+            break;
+          }
+        }
+        if(!doVisit) continue;
         if(cx < 0 || cy < 0 || cx >= width || cy >= height) continue;
         if(!isVisitable(pacmanField[cy*width + cx])) continue;
         //check if already visited
