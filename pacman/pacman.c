@@ -21,7 +21,7 @@ static const char backup_map[HEIGHT][WIDTH] = {
   "            | . | a-----d . c----d . c-----b | . |            ",
   "            | . | |                        | | . |            ",
   "            | . | |   a------    ------b   | | . |            ",
-  "------------d . c-d   |                |   c-d . c------------",
+  "------------d . c-d   | q              |   c-d . c------------",
   ". . . . . . . .       |                |       . . . . . . . .",
   "------------b . a-b   c----------------d   a-b . a------------",
   "            | . | |                        | | . |            ",
@@ -47,7 +47,13 @@ typedef struct Pacman{
   Direction desiredDir;
   Direction dir;
 } Pacman;
+typedef struct Ghost{
+  int x, y;
+  char prevFieldContent;
+  int doYTick;
+} Ghost;
 static Pacman pacman;
+static Ghost speedy;
 static int mouthOpen = 0;
 static int canMove(int y, int x){
   if(y < 0 || x < 0 || y >= HEIGHT || x >= WIDTH) return true; //for teleporting
@@ -116,28 +122,21 @@ static void drawField(WINDOW* win){
             waddch(win, pacchar);
             wattroff(win, COLOR_PAIR(3));
             wattron(win, COLOR_PAIR(1));
+            break;
+          case 'q': //speedy
+            wattroff(win, COLOR_PAIR(1));
+            wattron(win, COLOR_PAIR(4));
+            if(mouthOpen >= 4)
+              waddch(win, '&');
+            else waddch(win, 'O');
+            wattroff(win, COLOR_PAIR(4));
+            wattron(win, COLOR_PAIR(1));
+            break;
         }
 
     }
   }
   wrefresh(win);
-}
-static void findWay(int sy, int sx, int gy, int gx){
-  //clear field
-  for(int i = 0; i < HEIGHT; i++)
-    for(int j = 0; j < WIDTH; j++)
-      if(map[i][j] == '*')
-        map[i][j] = ' ';
-
-  //find Way
-  Way w = aStar(sy, sx, gy, gx, &map[0][0], HEIGHT, WIDTH);
-  mvprintw(5, WIDTH + 3, "size: %d\n", w.size);
-  for(int i = 0; i < w.size; i++){
-    int y = w.way[i*2];
-    int x = w.way[i*2 + 1];
-    map[y][x] = '*';
-  }
-  free(w.way);
 }
 
 static void translateDir(Direction dir, int* mvy, int* mvx){
@@ -164,6 +163,20 @@ static void translateDir(Direction dir, int* mvy, int* mvx){
     break;
   }
 }
+static void speedyLogic(){
+  //new Way
+  map[speedy.y][speedy.x] = speedy.prevFieldContent;
+  Way nw = aStar(speedy.y, speedy.x, pacman.y, pacman.x, &map[0][0], HEIGHT, WIDTH);
+  if(nw.size >= 1){
+    int ny = nw.way[0], nx = nw.way[1];
+    if(ny != speedy.y && speedy.doYTick){
+      speedy.y = ny;
+    }else speedy.x = nx;
+  }
+  free(nw.way);
+  speedy.prevFieldContent = map[speedy.y][speedy.x];
+  map[speedy.y][speedy.x] = 'q';
+}
 static void gameLogic(int doYTick){
   int mvx, mvy;
   //check for desired dir
@@ -186,8 +199,6 @@ static void gameLogic(int doYTick){
 
     map[pacman.y][pacman.x] = 'p';
   }
-  //visualize way
-  findWay(1, 2, pacman.y, pacman.x);
 }
 void runPacman(int highscore){
   timeout(1);
@@ -198,6 +209,11 @@ void runPacman(int highscore){
   pacman.x = 28;
   pacman.dir = RIGHT;
   pacman.desiredDir = NONE;
+  //init speedy
+  speedy.y = 12;
+  speedy.x = 24;
+  speedy.prevFieldContent = ' ';
+  speedy.doYTick = 0;
   //init map
   for(int j = 0; j < HEIGHT; j++)
     for(int i = 0; i < WIDTH; i++)
@@ -211,12 +227,14 @@ void runPacman(int highscore){
   init_color(COLOR_BLUE, 100, 100, 700);
   init_color(COLOR_MAGENTA, 600, 500, 400);
   init_color(COLOR_YELLOW, 950, 900, 400);
+  init_color(COLOR_RED, 1000, 500, 400);
   init_pair(1, COLOR_BLUE, COLOR_BLACK); //walls
   init_pair(2, COLOR_MAGENTA, COLOR_BLACK); //dots
   init_pair(3, COLOR_YELLOW, COLOR_BLACK); //pacman
+  init_pair(4, COLOR_RED, COLOR_BLACK); //speedy
   //for time
   struct timespec time;
-	uint64_t nanos = 0;
+	uint64_t pacmanTimeStamp = 0, speedyTimeStamp = 0;
   //game loop
   int doYTick = 1;
   while(!closeRequest){
@@ -241,15 +259,20 @@ void runPacman(int highscore){
     }
     clock_gettime(CLOCK_REALTIME, &time);
     long curr = time.tv_nsec;
+    if((curr - speedyTimeStamp) > 110000000l){
+      speedy.doYTick = (speedy.doYTick + 1) % 2;
+      speedyLogic();
+      speedyTimeStamp = curr;
+    }
     //we want each frame to take 100000000 nano seconds (0.1 seconds)
-    if((curr - nanos) > 100000000l){
+    if((curr - pacmanTimeStamp) > 100000000l){
       gameLogic(doYTick);
       //only move every second frame on y
       doYTick = (doYTick + 1) % 2;
       mouthOpen = (mouthOpen + 1) % 8;
       wclear(win);
       drawField(win);
-      nanos = curr;
+      pacmanTimeStamp = curr;
     }
   }
   delwin(win);
