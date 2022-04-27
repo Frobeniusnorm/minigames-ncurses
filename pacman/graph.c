@@ -59,6 +59,7 @@ static void enqueue(vec2i** arr, int* size, vec2i el){
 }
 static void pop(vec2i* arr, int* size, vec2i* res){
   res->score = arr[0].score;
+  res->distance = arr[0].distance;
   res->x = arr[0].x;
   res->y = arr[0].y;
   res->prev_x = arr[0].prev_x;
