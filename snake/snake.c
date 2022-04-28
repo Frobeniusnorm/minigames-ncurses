@@ -260,11 +260,12 @@ void runSnake(int maxscore){
 	mvwprintw(win, height/2-1, width/2-3, "GAME OVER");
 	move(height/2, width/2);
 	wattron(win, COLOR_PAIR(3));
-	mvwprintw(win, height/2, width/2-7, "[press any button]");
+	mvwprintw(win, height/2, width/2-7, "[press q to exit]");
 	wattroff(win, COLOR_PAIR(3));
 	wrefresh(win);
 	sleep(1);
-	getch();
+	while(getch() != 'q')
+	;
 	//cleanup
 	score = 0;
 	keepRunning = 1;

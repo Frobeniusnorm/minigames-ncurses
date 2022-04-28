@@ -61,6 +61,7 @@ static Pacman pacman;
 static Ghost blinky;
 static GhostMode mode;
 static int mouthOpen = 0;
+static int gameover = 0;
 static int canMove(int y, int x){
   if(y < 0 || x < 0 || y >= HEIGHT || x >= WIDTH) return true; //for teleporting
   char a = map[y][x];
@@ -218,6 +219,9 @@ static void blinkyLogic(){
       }
       break;
   }
+  if(blinky.y == pacman.y && blinky.x == pacman.x)
+    gameover = 1;
+
   blinky.prevFieldContent = map[blinky.y][blinky.x];
   map[blinky.y][blinky.x] = 'q';
 }
@@ -248,6 +252,7 @@ void runPacman(int highscore){
   timeout(1);
   clear();
 	refresh();
+  gameover = 0;
   //init pacman
   pacman.y = 21;
   pacman.x = 28;
@@ -275,17 +280,19 @@ void runPacman(int highscore){
   init_color(COLOR_MAGENTA, 600, 500, 400);
   init_color(COLOR_YELLOW, 950, 900, 400);
   init_color(COLOR_RED, 1000, 300, 200);
+  init_color(COLOR_WHITE, 1000, 1000, 1000);
   init_pair(1, COLOR_BLUE, COLOR_BLACK); //walls
   init_pair(2, COLOR_MAGENTA, COLOR_BLACK); //dots
   init_pair(3, COLOR_YELLOW, COLOR_BLACK); //pacman
   init_pair(4, COLOR_RED, COLOR_BLACK); //speedy
+  init_pair(5, COLOR_WHITE, COLOR_BLACK);
   //for time
   const double chaseTime = 20.0, scatterTime = 7.0; //TODO: change for different levels
   struct timespec time;
 	double pacmanTimeStamp = 0, speedyTimeStamp = 0, modeTimeStamp = 0;
   //game loop
   int doYTick = 1;
-  while(!closeRequest){
+  while(!closeRequest && !gameover){
     //input handling runs nvtl
     int c = getch();
     switch(c){
@@ -335,5 +342,13 @@ void runPacman(int highscore){
       drawField(win);
     }
   }
+  //game ended
+  wattron(win, COLOR_PAIR(5));
+  mvwprintw(win, HEIGHT/2-1, WIDTH/2-5, "GAME OVER");
+	mvwprintw(win, HEIGHT/2, WIDTH/2-9, "[press q to exit]");
+	wrefresh(win);
+	sleep(1);
+	while(getch() != 'q')
+  ;
   delwin(win);
 }
