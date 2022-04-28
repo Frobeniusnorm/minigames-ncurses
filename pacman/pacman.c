@@ -21,7 +21,7 @@ static const char backup_map[HEIGHT][WIDTH] = {
   "            | . | a-----d . c----d . c-----b | . |            ",
   "            | . | |                        | | . |            ",
   "            | . | |   a------    ------b   | | . |            ",
-  "------------d . c-d   |                |   c-d . c------------",
+  "------------d . c-d   | q              |   c-d . c------------",
   ". . . . . . . .       |                |       . . . . . . . .",
   "------------b . a-b   c----------------d   a-b . a------------",
   "            | . | |                        | | . |            ",
@@ -42,12 +42,24 @@ static char map[HEIGHT][WIDTH];
 typedef enum Direction{
   NONE, UP, LEFT, DOWN, RIGHT
 } Direction;
+typedef enum GhostMode{
+  CHASE, SCATTER, FRIGHTENED
+} GhostMode;
 typedef struct Pacman{
   int x, y;
   Direction desiredDir;
   Direction dir;
 } Pacman;
+typedef struct Ghost{
+  int x, y;
+  char prevFieldContent;
+  int doYTick;
+  int scattering;
+  int walkx, walky;
+} Ghost;
 static Pacman pacman;
+static Ghost blinky;
+static GhostMode mode;
 static int mouthOpen = 0;
 static int canMove(int y, int x){
   if(y < 0 || x < 0 || y >= HEIGHT || x >= WIDTH) return true; //for teleporting
@@ -116,28 +128,21 @@ static void drawField(WINDOW* win){
             waddch(win, pacchar);
             wattroff(win, COLOR_PAIR(3));
             wattron(win, COLOR_PAIR(1));
+            break;
+          case 'q': //speedy
+            wattroff(win, COLOR_PAIR(1));
+            wattron(win, COLOR_PAIR(4));
+            if(mouthOpen >= 4)
+              waddch(win, '&');
+            else waddch(win, 'O');
+            wattroff(win, COLOR_PAIR(4));
+            wattron(win, COLOR_PAIR(1));
+            break;
         }
 
     }
   }
   wrefresh(win);
-}
-static void findWay(int sy, int sx, int gy, int gx){
-  //clear field
-  for(int i = 0; i < HEIGHT; i++)
-    for(int j = 0; j < WIDTH; j++)
-      if(map[i][j] == '*')
-        map[i][j] = ' ';
-
-  //find Way
-  Way w = aStar(sy, sx, gy, gx, &map[0][0], HEIGHT, WIDTH);
-  mvprintw(5, WIDTH + 3, "size: %d\n", w.size);
-  for(int i = 0; i < w.size; i++){
-    int y = w.way[i*2];
-    int x = w.way[i*2 + 1];
-    map[y][x] = '*';
-  }
-  free(w.way);
 }
 
 static void translateDir(Direction dir, int* mvy, int* mvx){
@@ -164,6 +169,58 @@ static void translateDir(Direction dir, int* mvy, int* mvx){
     break;
   }
 }
+static void scatter(Ghost* ghost, int* way, int waysize){
+  if(ghost->x == way[0] && ghost->y == way[1])
+    ghost->scattering = 1;
+  if(ghost->scattering){
+    for(int i = 0; i < waysize; i++){
+      if(way[i*2] == ghost->x && way[i*2 + 1] == ghost->y){
+        const int nexti = i < waysize - 1 ? i + 1 : 0;
+        const int xdiff = way[nexti * 2] - way[i * 2];
+        const int ydiff = way[nexti * 2 + 1] - way[i * 2 + 1];
+        ghost->walkx = xdiff < 0 ? -1 : xdiff == 0 ? 0 : 1;
+        ghost->walky = ydiff < 0 ? -1 : ydiff == 0 ? 0 : 1;
+        break;
+      }
+    }
+    ghost->x += ghost->walkx;
+    if(ghost->doYTick)
+      ghost->y += ghost->walky;
+  }else{
+    const Way nw = aStar(ghost->y, ghost->x, way[1], way[0], &map[0][0], HEIGHT, WIDTH);
+    if(nw.size >= 1){
+      const int ny = nw.way[0], nx = nw.way[1];
+      if(ny != ghost->y && ghost->doYTick){
+        ghost->y = ny;
+      }else ghost->x = nx;
+    }
+    free(nw.way);
+  }
+}
+static void blinkyLogic(){
+  map[blinky.y][blinky.x] = blinky.prevFieldContent;
+  switch(mode){
+    case CHASE:
+      blinky.scattering = 0; //to reset
+      const Way nw = aStar(blinky.y, blinky.x, pacman.y, pacman.x, &map[0][0], HEIGHT, WIDTH);
+      if(nw.size >= 1){
+        const int ny = nw.way[0], nx = nw.way[1];
+        if(ny != blinky.y && blinky.doYTick){
+          blinky.y = ny;
+        }else blinky.x = nx;
+      }
+      free(nw.way);
+      break;
+    case SCATTER:
+      {
+        int way[8] = {47, 1, 59, 1, 59, 4, 47, 4};
+        scatter(&blinky, &way[0], 4);
+      }
+      break;
+  }
+  blinky.prevFieldContent = map[blinky.y][blinky.x];
+  map[blinky.y][blinky.x] = 'q';
+}
 static void gameLogic(int doYTick){
   int mvx, mvy;
   //check for desired dir
@@ -186,8 +243,6 @@ static void gameLogic(int doYTick){
 
     map[pacman.y][pacman.x] = 'p';
   }
-  //visualize way
-  findWay(1, 2, pacman.y, pacman.x);
 }
 void runPacman(int highscore){
   timeout(1);
@@ -198,6 +253,14 @@ void runPacman(int highscore){
   pacman.x = 28;
   pacman.dir = RIGHT;
   pacman.desiredDir = NONE;
+  //init ghosts
+  mode = SCATTER;
+  //init speedy
+  blinky.y = 12;
+  blinky.x = 24;
+  blinky.prevFieldContent = ' ';
+  blinky.doYTick = 0;
+  blinky.scattering = 0;
   //init map
   for(int j = 0; j < HEIGHT; j++)
     for(int i = 0; i < WIDTH; i++)
@@ -211,12 +274,15 @@ void runPacman(int highscore){
   init_color(COLOR_BLUE, 100, 100, 700);
   init_color(COLOR_MAGENTA, 600, 500, 400);
   init_color(COLOR_YELLOW, 950, 900, 400);
+  init_color(COLOR_RED, 1000, 300, 200);
   init_pair(1, COLOR_BLUE, COLOR_BLACK); //walls
   init_pair(2, COLOR_MAGENTA, COLOR_BLACK); //dots
   init_pair(3, COLOR_YELLOW, COLOR_BLACK); //pacman
+  init_pair(4, COLOR_RED, COLOR_BLACK); //speedy
   //for time
+  const double chaseTime = 20.0, scatterTime = 7.0; //TODO: change for different levels
   struct timespec time;
-	uint64_t nanos = 0;
+	double pacmanTimeStamp = 0, speedyTimeStamp = 0, modeTimeStamp = 0;
   //game loop
   int doYTick = 1;
   while(!closeRequest){
@@ -240,16 +306,33 @@ void runPacman(int highscore){
       break;
     }
     clock_gettime(CLOCK_REALTIME, &time);
-    long curr = time.tv_nsec;
-    //we want each frame to take 100000000 nano seconds (0.1 seconds)
-    if((curr - nanos) > 100000000l){
+    double seconds = time.tv_sec + (time.tv_nsec / 1000000000.0);
+    int toDraw = 0;
+    if(pacmanTimeStamp == 0){
+      pacmanTimeStamp = speedyTimeStamp = modeTimeStamp = seconds;
+    }
+    //mode switch timer
+    if(mode == SCATTER && (seconds - modeTimeStamp) > scatterTime){
+      mode = CHASE;
+      modeTimeStamp = seconds;
+    }else if(mode == CHASE  && (seconds - modeTimeStamp) > chaseTime){
+      mode = SCATTER;
+      modeTimeStamp = seconds;
+    }
+    //blinky timer
+    if((seconds - speedyTimeStamp) > 0.12){
+      blinky.doYTick = (blinky.doYTick + 1) % 2;
+      blinkyLogic();
+      speedyTimeStamp = seconds;
+    }
+    if((seconds - pacmanTimeStamp) > 0.1){
       gameLogic(doYTick);
       //only move every second frame on y
       doYTick = (doYTick + 1) % 2;
       mouthOpen = (mouthOpen + 1) % 8;
+      pacmanTimeStamp = seconds;
       wclear(win);
       drawField(win);
-      nanos = curr;
     }
   }
   delwin(win);

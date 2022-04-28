@@ -108,12 +108,12 @@ Way aStar(int starty, int startx, int goaly, int goalx, char* pacmanField, int h
       //build way
       res.way = malloc(nodecount * 2 * sizeof(int));
       res.size = nodecount;
-      int index = 0;
+      int index = (nodecount - 1) * 2;
       for(vec2i i = curr; i.prev_x >= 0;){
         res.way[index] = i.y;
         res.way[index + 1] = i.x;
         i = allnodes[i.prev_y*width + i.prev_x];
-        index += 2;
+        index -= 2;
       }
       break;
     }
