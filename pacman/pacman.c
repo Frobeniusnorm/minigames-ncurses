@@ -11,7 +11,7 @@
 static const char backup_map[HEIGHT][WIDTH] = {
   "a-----------------------------ba-----------------------------b",
   "| . . . . . . . . . . . . . . || . . . . . . . . . . . . . . |",
-  "| . a-------b . a---------b . || . a---------b . a-------b . |",
+  "| * a-------b . a---------b . || . a---------b . a-------b * |",
   "| . c-------d . c---------d . cd . c---------d . c-------d . |",
   "| . . . . . . . . . . . . . .    . . . . . . . . . . . . . . |",
   "| . a-------b . a-b . a----------------b . a-b . a-------b . |",
@@ -30,7 +30,7 @@ static const char backup_map[HEIGHT][WIDTH] = {
   "| . . . . . . . . . . . . . |    | . . . . . . . . . . . . . |",
   "| . a-------b . a-------b . |    | . a-------b . a-------b . |",
   "| . c-----b | . c-------d . c----d . c-------d . | a-----d . |",
-  "| . . . . | | . . . . . . .        . . . . . . . | | . . . . |",
+  "| * . . . | | . . . . . . .        . . . . . . . | | . . . * |",
   "c-----b . | | . a-b . a----------------b . a-b . | | . a-----d",
   "      | . | | . | | . |                | . | | . | | . |      ",
   "      | . c-d . c-d . c----------------d . c-d . c-d . |      ",
@@ -62,6 +62,7 @@ static Ghost blinky;
 static GhostMode mode;
 static int mouthOpen = 0;
 static int gameover = 0;
+static int setFrightened = 0;
 static int canMove(int y, int x){
   if(y < 0 || x < 0 || y >= HEIGHT || x >= WIDTH) return true; //for teleporting
   char a = map[y][x];
@@ -76,10 +77,11 @@ static void drawField(WINDOW* win){
     for(int j = 0; j < WIDTH; j++){
         wmove(win, i, j);
         switch(map[i][j]){
+          case '*':
           case '.':
             wattroff(win, COLOR_PAIR(1));
             wattron(win, COLOR_PAIR(2));
-            waddch(win, '.');
+            waddch(win, map[i][j]);
             wattroff(win, COLOR_PAIR(2));
             wattron(win, COLOR_PAIR(1));
             break;
@@ -104,13 +106,6 @@ static void drawField(WINDOW* win){
           case 'T':
             waddch(win, ACS_TTEE);
             break;
-          case '*':
-            wattroff(win, COLOR_PAIR(1));
-            wattron(win, COLOR_PAIR(2));
-            waddch(win, '*');
-            wattroff(win, COLOR_PAIR(2));
-            wattron(win, COLOR_PAIR(1));
-            break;
           case 'p':
             wattroff(win, COLOR_PAIR(1));
             wattron(win, COLOR_PAIR(3));
@@ -131,13 +126,17 @@ static void drawField(WINDOW* win){
             wattron(win, COLOR_PAIR(1));
             break;
           case 'q': //speedy
-            wattroff(win, COLOR_PAIR(1));
-            wattron(win, COLOR_PAIR(4));
+            if(mode != FRIGHTENED){
+              wattroff(win, COLOR_PAIR(1));
+              wattron(win, COLOR_PAIR(4));
+            }
             if(mouthOpen >= 4)
               waddch(win, '&');
             else waddch(win, 'O');
-            wattroff(win, COLOR_PAIR(4));
-            wattron(win, COLOR_PAIR(1));
+            if(mode != FRIGHTENED){
+              wattroff(win, COLOR_PAIR(4));
+              wattron(win, COLOR_PAIR(1));
+            }
             break;
         }
 
@@ -168,6 +167,58 @@ static void translateDir(Direction dir, int* mvy, int* mvx){
     default:
     //ignore
     break;
+  }
+}
+static int isVisitable(char c){
+  return c == ' ' || c == 'p' || c == '.' || c == 'q' || c == '*';
+}
+static void frightened(Ghost* ghost){
+  int options[4] = {1, 1, 1, 1};
+  int countop = 0;
+  int offsets[4][2] = {{-1, 0}, {1, 0}, {0, -1}, {0, 1}};
+  int didy = ghost->walky != 0;
+  for(int i = 0; i < 4; i++){
+    int cy = ghost->y + offsets[i][0], cx = ghost->x + offsets[i][1];
+    if(cy < 0 || cx < 0 || cy >= HEIGHT || cx >= WIDTH || !isVisitable(map[cy][cx])){
+      options[i] = 0;
+      continue;
+    }
+    int doVisit = 1;
+    for(int off = -1; off <= 1; off+=2){
+      int nx = cx + off;
+      if(nx < WIDTH && nx >= 0 && !isVisitable(map[cy][nx])){
+        doVisit = 0;
+        break;
+      }
+    }
+    //do not turn around
+    if((ghost->walky != 0 || ghost->walkx != 0) &&
+         ((offsets[i][0] == 0 && ghost->walky == 0 && offsets[i][1] == -ghost->walkx) ||
+          (offsets[i][1] == 0 && ghost->walkx == 0 && offsets[i][0] == -ghost->walky)))
+       doVisit = 0;
+
+    if(!doVisit) options[i] = 0;
+    else countop++;
+  }
+  //randomly choose option
+  if(countop == 0){
+    //at portal
+    if(ghost->x + 1 > WIDTH) ghost->x = 0;
+    if(ghost->x == 0) ghost->x = WIDTH - 1;
+  }else{
+    int optidx = rand() % countop;
+    int posidx = 0;
+    for(int j = 0; j < 4; j++){
+      if(options[j]){
+        if(posidx++ == optidx){
+          ghost->walky = offsets[j][0];
+          ghost->walkx = offsets[j][1];
+          if(ghost->doYTick || !didy) ghost->y += ghost->walky;
+          ghost->x += ghost->walkx;
+          break;
+        }
+      }
+    }
   }
 }
 static void scatter(Ghost* ghost, int* way, int waysize){
@@ -218,6 +269,9 @@ static void blinkyLogic(){
         scatter(&blinky, &way[0], 4);
       }
       break;
+    case FRIGHTENED:
+      frightened(&blinky);
+      break;
   }
   if(blinky.y == pacman.y && blinky.x == pacman.x)
     gameover = 1;
@@ -244,7 +298,7 @@ static void gameLogic(int doYTick){
     pacman.x += mvx;
     if(pacman.x < 0) pacman.x = WIDTH-1;
     if(pacman.x >= WIDTH) pacman.x = 0;
-
+    if(map[pacman.y][pacman.x] == '*') setFrightened = 1;
     map[pacman.y][pacman.x] = 'p';
   }
 }
@@ -253,6 +307,7 @@ void runPacman(int highscore){
   clear();
 	refresh();
   gameover = 0;
+  setFrightened = 0;
   //init pacman
   pacman.y = 21;
   pacman.x = 28;
@@ -319,11 +374,23 @@ void runPacman(int highscore){
       pacmanTimeStamp = speedyTimeStamp = modeTimeStamp = seconds;
     }
     //mode switch timer
-    if(mode == SCATTER && (seconds - modeTimeStamp) > scatterTime){
-      mode = CHASE;
+    if(setFrightened){
+      setFrightened = 0;
+      mode = FRIGHTENED;
       modeTimeStamp = seconds;
-    }else if(mode == CHASE  && (seconds - modeTimeStamp) > chaseTime){
-      mode = SCATTER;
+      blinky.walky = 0;
+      blinky.walkx = 0;
+    }
+    if(mode != FRIGHTENED){
+      if(mode == SCATTER && (seconds - modeTimeStamp) > scatterTime){
+        mode = CHASE;
+        modeTimeStamp = seconds;
+      }else if(mode == CHASE  && (seconds - modeTimeStamp) > chaseTime){
+        mode = SCATTER;
+        modeTimeStamp = seconds;
+      }
+    }else if(seconds - modeTimeStamp > 20.0){
+      mode = CHASE;
       modeTimeStamp = seconds;
     }
     //blinky timer
@@ -343,12 +410,14 @@ void runPacman(int highscore){
     }
   }
   //game ended
-  wattron(win, COLOR_PAIR(5));
-  mvwprintw(win, HEIGHT/2-1, WIDTH/2-5, "GAME OVER");
-	mvwprintw(win, HEIGHT/2, WIDTH/2-9, "[press q to exit]");
-	wrefresh(win);
-	sleep(1);
-	while(getch() != 'q')
-  ;
+  if(gameover){
+    wattron(win, COLOR_PAIR(5));
+    mvwprintw(win, HEIGHT/2-1, WIDTH/2-5, "GAME OVER");
+  	mvwprintw(win, HEIGHT/2, WIDTH/2-9, "[press q to exit]");
+  	wrefresh(win);
+  	sleep(1);
+  	while(getch() != 'q')
+    ;
+  }
   delwin(win);
 }
