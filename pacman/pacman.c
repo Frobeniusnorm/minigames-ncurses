@@ -203,8 +203,8 @@ static void frightened(Ghost* ghost){
   //randomly choose option
   if(countop == 0){
     //at portal
-    if(ghost->x + 1 > WIDTH) ghost->x = 0;
-    if(ghost->x == 0) ghost->x = WIDTH - 1;
+    if(ghost->x + ghost->walkx >= WIDTH) ghost->x = 0;
+    if(ghost->x + ghost->walkx < 0) ghost->x = WIDTH - 1;
   }else{
     int optidx = rand() % countop;
     int posidx = 0;
@@ -273,8 +273,13 @@ static void blinkyLogic(){
       frightened(&blinky);
       break;
   }
-  if(blinky.y == pacman.y && blinky.x == pacman.x)
-    gameover = 1;
+  if(blinky.y == pacman.y && blinky.x == pacman.x){
+    if(mode == FRIGHTENED){
+      sleep(1);
+      blinky.y = 12;
+      blinky.x = 24;
+    }else gameover = 1;
+  }
 
   blinky.prevFieldContent = map[blinky.y][blinky.x];
   map[blinky.y][blinky.x] = 'q';
