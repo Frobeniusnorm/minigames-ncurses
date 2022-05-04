@@ -81,7 +81,7 @@ static void update(vec2i* arr, int size, int y, int x, int distance, double scor
     }
 }
 static int isVisitable(char c){
-  return c == ' ' || c == 'p' || c == '.' || c == 'q' || c == '*';
+  return c == ' ' || c == 'p' || c == '.' || c == 'q' || c == '*' || c == 'r';
 }
 Way aStar(int starty, int startx, int goaly, int goalx, char* pacmanField, int height, int width){
   vec2i* allnodes = calloc(height * width, sizeof(vec2i));
@@ -98,6 +98,7 @@ Way aStar(int starty, int startx, int goaly, int goalx, char* pacmanField, int h
     vec2i curr;
     pop(queue, &size, &curr);
     if(curr.x == goalx && curr.y == goaly){
+BUILD_WAY_FROM_NODE:
       curr = allnodes[curr.y * width + curr.x]; //to have newest predecessor
       //determine size
       long nodecount = 0;
@@ -165,6 +166,9 @@ Way aStar(int starty, int startx, int goaly, int goalx, char* pacmanField, int h
         }
       }
     }
+    if(size == 0) //cant find a way//THIS DOES NOT FIND THE NEAREST NODE
+        goto BUILD_WAY_FROM_NODE;
+      //TODO add logic to keep track of the node with the smalles straight distance
   }
   free(queue);
   free(allnodes);
