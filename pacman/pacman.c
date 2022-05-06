@@ -314,9 +314,9 @@ static void pinkyLogic(){
       pinky.scattering = 0;
       int mvpx = (pacman.dir == UP || pacman.dir == DOWN)? 0 : (pacman.dir == LEFT ? -1 : (pacman.dir == RIGHT ? 1 : 0));
       int mvpy = (pacman.dir == LEFT || pacman.dir == RIGHT) ? 0 : (pacman.dir == UP ? -1 : (pacman.dir == DOWN ? 1 : 0));
-      int targetx = MIN(WIDTH - 1, MAX(0, pacman.x + mvpx));
-      int targety = MIN(HEIGHT - 1, MAX(0, pacman.y + mvpy));
-      mvprintw(3, WIDTH + 3, "move from %d %d to %d %d       ", pinky.x, pinky.y, targetx, targety);
+      int targetx = MIN(WIDTH - 1, MAX(0, pacman.x + mvpx * 4));
+      int targety = MIN(HEIGHT - 1, MAX(0, pacman.y + mvpy * 4));
+      mvprintw(3, WIDTH + 3, "move from %d %d to %d %d, pacman at %d %d        ", pinky.x, pinky.y, targetx, targety, pacman.x, pacman.y);
       const Way nw = aStar(pinky.y, pinky.x, targety, targetx, &map[0][0], HEIGHT, WIDTH);
       if(nw.size >= 1){
         const int ny = nw.way[0], nx = nw.way[1];
@@ -480,7 +480,7 @@ void runPacman(int highscore){
       pinky.doYTick = (pinky.doYTick + 1) % 2;
       pinkyLogic(); //todo: pinky must be slower than blinky
       blinky.doYTick = (blinky.doYTick + 1) % 2;
-      blinkyLogic();
+      //blinkyLogic();
 
       speedyTimeStamp = seconds;
     }

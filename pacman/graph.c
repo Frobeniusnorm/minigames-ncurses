@@ -94,6 +94,13 @@ Way aStar(int starty, int startx, int goaly, int goalx, char* pacmanField, int h
   Way res;
   res.way  = NULL;
   res.size = 0;
+  //shortest straight distance
+  int shortestidx = starty * width + startx;
+  double shortestdis;
+  {
+    int xdiff = goalx - startx, ydiff = goaly - starty;
+    shortestdis = sqrt(xdiff*xdiff + ydiff*ydiff);
+  }
   while(size > 0){
     vec2i curr;
     pop(queue, &size, &curr);
@@ -143,7 +150,12 @@ BUILD_WAY_FROM_NODE:
         if(visited[cy * width + cx]) continue;
         int newdis = curr.distance + 1;
         int xdiff = goalx - cx, ydiff = goaly - cy;
-        double newscore = newdis + sqrt(xdiff * xdiff + ydiff * ydiff);
+        double airdis = sqrt(xdiff * xdiff + ydiff * ydiff);
+        double newscore = newdis + airdis;
+        if(airdis < shortestdis){
+          shortestdis = airdis;
+          shortestidx = cy * width + cx;
+        }
         //check if already present
         vec2i* el = &allnodes[cy * width + cx];
         //if not present
@@ -166,9 +178,10 @@ BUILD_WAY_FROM_NODE:
         }
       }
     }
-    if(size == 0) //cant find a way//THIS DOES NOT FIND THE NEAREST NODE
+    if(size == 0){ //cant find a way
+        curr = allnodes[shortestidx];
         goto BUILD_WAY_FROM_NODE;
-      //TODO add logic to keep track of the node with the smalles straight distance
+    }
   }
   free(queue);
   free(allnodes);
