@@ -7,5 +7,5 @@ typedef struct Way{
 } Way;
 
 Way aStar(int starty, int startx, int goaly, int goalx, char* pacmanField, int height, int width);
-
+int isVisitable(char c);
 #endif

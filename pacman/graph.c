@@ -80,8 +80,8 @@ static void update(vec2i* arr, int size, int y, int x, int distance, double scor
       }
     }
 }
-static int isVisitable(char c){
-  return c == ' ' || c == 'p' || c == '.' || c == 'q' || c == '*' || c == 'r';
+int isVisitable(char c){
+  return c == ' ' || c == 'p' || c == '.' || c == 'q' || c == '*' || c == 'r' || c == 't';
 }
 Way aStar(int starty, int startx, int goaly, int goalx, char* pacmanField, int height, int width){
   vec2i* allnodes = calloc(height * width, sizeof(vec2i));

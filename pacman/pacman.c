@@ -21,7 +21,7 @@ static const char backup_map[HEIGHT][WIDTH] = {
   "c-----------b . | c-----b . |    | . a-----d | . a-----------d",
   "            | . | a-----d . c----d . c-----b | . |            ",
   "            | . | |                        | | . |            ",
-  "            | . | |   a------    ------b   | | . |            ",
+  "            | . | |   a------tttt------b   | | . |            ",
   "------------d . c-d   | q              |   c-d . c------------",
   ". . . . . . . .       |                |       . . . . . . . .",
   "------------b . a-b   c----------------d   a-b . a------------",
@@ -69,7 +69,8 @@ static int canMove(int y, int x){
   char a = map[y][x];
   char b = x < WIDTH - 1 ? map[y][x+1] : ' ';
   char c = x > 0 ? map[y][x-1] : ' ';
-  return a != '-' && a != '|' && (a < 'a' || a > 'd') && b != '-' && b != '|' && (b < 'a' || b > 'd') && c != '-' && c != '|' && (c < 'a' || c > 'd');
+  //isVisitable would allow the door of the ghost room
+  return isVisitable(a) && isVisitable(b) && isVisitable(c) && a != 't' && b != 't' && c != 't';
 }
 static void drawField(WINDOW* win){
 //  box(win, 0, 0);
@@ -103,6 +104,13 @@ static void drawField(WINDOW* win){
             break;
           case 'd':
             waddch(win, ACS_LRCORNER);
+            break;
+          case 't':
+            wattroff(win, COLOR_PAIR(1));
+            wattron(win, COLOR_PAIR(2));
+            whline(win, 0, 1);
+            wattroff(win, COLOR_PAIR(2));
+            wattron(win, COLOR_PAIR(1));
             break;
           case 'T':
             waddch(win, ACS_TTEE);
@@ -182,9 +190,6 @@ static void translateDir(Direction dir, int* mvy, int* mvx){
     //ignore
     break;
   }
-}
-static int isVisitable(char c){
-  return c == ' ' || c == 'p' || c == '.' || c == 'q' || c == '*' || c == 'r';
 }
 static void frightened(Ghost* ghost){
   int options[4] = {1, 1, 1, 1};
@@ -266,7 +271,7 @@ static void scatter(Ghost* ghost, int* way, int waysize){
 static void blinkyLogic(){
   char prev =  blinky.prevFieldContent;
   if(prev != 127) map[blinky.y][blinky.x] = prev;
-  int origx = pinky.x, origy = pinky.y;
+  int origx = blinky.x, origy = blinky.y;
   switch(mode){
     case CHASE:
       blinky.scattering = 0; //to reset
@@ -299,7 +304,7 @@ static void blinkyLogic(){
     }else gameover = 1;
   }
   prev = map[blinky.y][blinky.x];
-  if(prev == ' ' || prev == '*' || prev == '.'){
+  if(prev == ' ' || prev == '*' || prev == '.' || prev == 't'){
     blinky.prevFieldContent = prev;
     map[blinky.y][blinky.x] = 'q';
   }else blinky.prevFieldContent = 127;
@@ -316,7 +321,6 @@ static void pinkyLogic(){
       int mvpy = (pacman.dir == LEFT || pacman.dir == RIGHT) ? 0 : (pacman.dir == UP ? -1 : (pacman.dir == DOWN ? 1 : 0));
       int targetx = MIN(WIDTH - 1, MAX(0, pacman.x + mvpx * 4));
       int targety = MIN(HEIGHT - 1, MAX(0, pacman.y + mvpy * 4));
-      mvprintw(3, WIDTH + 3, "move from %d %d to %d %d, pacman at %d %d        ", pinky.x, pinky.y, targetx, targety, pacman.x, pacman.y);
       const Way nw = aStar(pinky.y, pinky.x, targety, targetx, &map[0][0], HEIGHT, WIDTH);
       if(nw.size >= 1){
         const int ny = nw.way[0], nx = nw.way[1];
@@ -346,7 +350,7 @@ static void pinkyLogic(){
     }else gameover = 1;
   }
   prev = map[pinky.y][pinky.x];
-  if(prev == ' ' || prev == '*' || prev == '.'){
+  if(prev == ' ' || prev == '*' || prev == '.' || prev == 't'){
     pinky.prevFieldContent = prev;
     map[pinky.y][pinky.x] = 'r';
   }else pinky.prevFieldContent = 127;
@@ -480,7 +484,7 @@ void runPacman(int highscore){
       pinky.doYTick = (pinky.doYTick + 1) % 2;
       pinkyLogic(); //todo: pinky must be slower than blinky
       blinky.doYTick = (blinky.doYTick + 1) % 2;
-      //blinkyLogic();
+      blinkyLogic();
 
       speedyTimeStamp = seconds;
     }

@@ -10,7 +10,7 @@ build/snake.o: snake/snake.c snake/snake.h
 build/tetris.o: tetris/tetris.c tetris/tetris.h
 	$(CC) -o build/tetris.o tetris/tetris.c
 
-build/pacman.o: pacman/pacman.c pacman/pacman.h pacman/graph.h
+build/pacman.o: pacman/pacman.c pacman/pacman.h pacman/graph.h build/graph.o
 	$(CC) -o build/pacman.o pacman/pacman.c
 
 build/graph.o: pacman/graph.h pacman/graph.c
