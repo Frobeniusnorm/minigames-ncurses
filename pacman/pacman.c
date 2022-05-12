@@ -44,7 +44,7 @@ typedef enum Direction{
   NONE, UP, LEFT, DOWN, RIGHT
 } Direction;
 typedef enum GhostMode{
-  CHASE, SCATTER, FRIGHTENED
+  CHASE, SCATTER, FRIGHTENED, FRIGHTENED_BLINK
 } GhostMode;
 typedef struct Pacman{
   int x, y;
@@ -56,6 +56,7 @@ typedef struct Ghost{
   char prevFieldContent;
   int doYTick;
   int scattering;
+  double inhouse;
   int walkx, walky;
 } Ghost;
 static Pacman pacman;
@@ -135,27 +136,28 @@ static void drawField(WINDOW* win){
             wattron(win, COLOR_PAIR(1));
             break;
           case 'q': //blinky
-            if(mode != FRIGHTENED){
+            if(mode != FRIGHTENED && mode != FRIGHTENED_BLINK || (mode == FRIGHTENED_BLINK && mouthOpen >= 4)){
               wattroff(win, COLOR_PAIR(1));
               wattron(win, COLOR_PAIR(4));
             }
+
             if(mouthOpen >= 4)
               waddch(win, '&');
             else waddch(win, 'O');
-            if(mode != FRIGHTENED){
+            if(mode != FRIGHTENED && mode != FRIGHTENED_BLINK || (mode == FRIGHTENED_BLINK && mouthOpen >= 4)){
               wattroff(win, COLOR_PAIR(4));
               wattron(win, COLOR_PAIR(1));
             }
             break;
           case 'r': //pinky
-            if(mode != FRIGHTENED){
+            if(mode != FRIGHTENED && mode != FRIGHTENED_BLINK || (mode == FRIGHTENED_BLINK && mouthOpen >= 4)){
               wattroff(win, COLOR_PAIR(1));
               wattron(win, COLOR_PAIR(6));
             }
             if(mouthOpen >= 4)
               waddch(win, '&');
             else waddch(win, 'O');
-            if(mode != FRIGHTENED){
+            if(mode != FRIGHTENED || (mode == FRIGHTENED_BLINK && mouthOpen >= 4)){
               wattroff(win, COLOR_PAIR(6));
               wattron(win, COLOR_PAIR(1));
             }
@@ -191,7 +193,12 @@ static void translateDir(Direction dir, int* mvy, int* mvx){
     break;
   }
 }
-static void frightened(Ghost* ghost){
+static void frightened(Ghost* ghost, double time){
+  if(ghost->inhouse > 0){
+    if(time - ghost->inhouse > 5)
+      ghost->inhouse = -1;
+    return;
+  }
   int options[4] = {1, 1, 1, 1};
   int countop = 0;
   int offsets[4][2] = {{-1, 0}, {1, 0}, {0, -1}, {0, 1}};
@@ -219,12 +226,13 @@ static void frightened(Ghost* ghost){
     if(!doVisit) options[i] = 0;
     else countop++;
   }
-  //randomly choose option
+
   if(countop == 0){
-    //at portal
+    //at portal (as long as i haven't fucked up)
     if(ghost->x + ghost->walkx >= WIDTH) ghost->x = 0;
     if(ghost->x + ghost->walkx < 0) ghost->x = WIDTH - 1;
   }else{
+    //randomly choose option
     int optidx = rand() % countop;
     int posidx = 0;
     for(int j = 0; j < 4; j++){
@@ -268,7 +276,7 @@ static void scatter(Ghost* ghost, int* way, int waysize){
     free(nw.way);
   }
 }
-static void blinkyLogic(){
+static void blinkyLogic(double time){
   char prev =  blinky.prevFieldContent;
   if(prev != 127) map[blinky.y][blinky.x] = prev;
   int origx = blinky.x, origy = blinky.y;
@@ -290,17 +298,19 @@ static void blinkyLogic(){
         scatter(&blinky, &way[0], 4);
       }
       break;
+    case FRIGHTENED_BLINK:
     case FRIGHTENED:
       blinky.scattering = 0;
-      frightened(&blinky);
+      frightened(&blinky, time);
       break;
   }
                                                   // because pacman and the ghosts dont update synchronously
   if(blinky.y == pacman.y && blinky.x == pacman.x || pacman.y == origy && pacman.x == origx){
-    if(mode == FRIGHTENED){
+    if(mode == FRIGHTENED || mode == FRIGHTENED_BLINK){
       sleep(1);
       blinky.y = 12;
       blinky.x = 24;
+      blinky.inhouse = time;
     }else gameover = 1;
   }
   prev = map[blinky.y][blinky.x];
@@ -309,7 +319,7 @@ static void blinkyLogic(){
     map[blinky.y][blinky.x] = 'q';
   }else blinky.prevFieldContent = 127;
 }
-static void pinkyLogic(){
+static void pinkyLogic(double time){
   char prev =  pinky.prevFieldContent;
   if(prev != 127) map[pinky.y][pinky.x] = prev;
   int origx = pinky.x, origy = pinky.y;
@@ -337,16 +347,18 @@ static void pinkyLogic(){
         scatter(&pinky, &way[0], 4);
       }
       break;
+    case FRIGHTENED_BLINK:
     case FRIGHTENED:
       pinky.scattering = 0;
-      frightened(&pinky);
+      frightened(&pinky, time);
       break;
   }
   if(pinky.y == pacman.y && pinky.x == pacman.x || pacman.y == origy && pacman.x == origx){
-    if(mode == FRIGHTENED){
+    if(mode == FRIGHTENED || mode == FRIGHTENED_BLINK){
       sleep(1);
       pinky.y = 12;
-      pinky.x = 24;
+      pinky.x = 26;
+      pinky.inhouse = time;
     }else gameover = 1;
   }
   prev = map[pinky.y][pinky.x];
@@ -397,11 +409,13 @@ void runPacman(int highscore){
   blinky.prevFieldContent = ' ';
   blinky.doYTick = 0;
   blinky.scattering = 0;
+  blinky.inhouse = -1;
   //init blinky
   pinky.y = 12;
   pinky.x = 26;
   pinky.prevFieldContent = ' ';
   pinky.doYTick = 0;
+  pinky.inhouse = -1;
   pinky.scattering = 0;
   //init map
   for(int j = 0; j < HEIGHT; j++)
@@ -467,7 +481,7 @@ void runPacman(int highscore){
       pinky.walky = 0;
       pinky.walkx = 0;
     }
-    if(mode != FRIGHTENED){
+    if(mode != FRIGHTENED && mode != FRIGHTENED_BLINK){
       if(mode == SCATTER && (seconds - modeTimeStamp) > scatterTime){
         mode = CHASE;
         modeTimeStamp = seconds;
@@ -475,16 +489,18 @@ void runPacman(int highscore){
         mode = SCATTER;
         modeTimeStamp = seconds;
       }
-    }else if(seconds - modeTimeStamp > 20.0){
+    }else if(seconds - modeTimeStamp > 13.0){
       mode = CHASE;
       modeTimeStamp = seconds;
-    }
+    }else if(seconds - modeTimeStamp > 10.0)
+      mode = FRIGHTENED_BLINK;
+
     //blinky timer
     if((seconds - speedyTimeStamp) > 0.12){
       pinky.doYTick = (pinky.doYTick + 1) % 2;
-      pinkyLogic(); //todo: pinky must be slower than blinky
+      pinkyLogic(seconds); //todo: pinky must be slower than blinky
       blinky.doYTick = (blinky.doYTick + 1) % 2;
-      blinkyLogic();
+      blinkyLogic(seconds);
 
       speedyTimeStamp = seconds;
     }
