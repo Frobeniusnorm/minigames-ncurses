@@ -319,8 +319,8 @@ static void inkyLogic(double time){
     }
     case SCATTER:
       {
-        int way[8] = {2, 1, 2, 4, 14, 4, 14, 1};
-        scatter(&inky, &way[0], 4);
+        int way[14] = {2, 18, 2, 21, 8, 21, 8, 25, 14, 25, 14, 18};
+        scatter(&inky, &way[0], 7);
       }
       break;
     case FRIGHTENED_BLINK:
