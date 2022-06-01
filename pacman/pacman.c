@@ -62,6 +62,7 @@ typedef struct Ghost{
 } Ghost;
 static Pacman pacman;
 static Ghost blinky, pinky, inky, clyde;
+static Ghost* ghosts[4] = {&blinky, &pinky, &inky, &clyde};
 static GhostMode mode;
 static int mouthOpen = 0;
 static int gameover = 0;
@@ -303,6 +304,17 @@ static void scatter(Ghost* ghost, int* way, int waysize){
     free(nw.way);
   }
 }
+static void shortestWayChaseLogic(Ghost* g, int targety, int targetx){
+  g->scattering = 0; //to reset
+  const Way nw = aStar(g->y, g->x, targety, targetx, &map[0][0], HEIGHT, WIDTH);
+  if(nw.size >= 1){
+    const int ny = nw.way[0], nx = nw.way[1];
+    if(ny != g->y && g->doYTick){
+      g->y = ny;
+    }else g->x = nx;
+  }
+  free(nw.way);
+}
 static void inkyLogic(double time){
   char prev = inky.prevFieldContent;
   if(prev != 127) map[inky.y][inky.x] = prev;
@@ -321,14 +333,7 @@ static void inkyLogic(double time){
       targetx = MIN(WIDTH-1, MAX(0, targetx));
       targety = MIN(HEIGHT-1, MAX(0, targety));
 
-      const Way nw = aStar(inky.y, inky.x, targety, targetx, &map[0][0], HEIGHT, WIDTH);
-      if(nw.size >= 1){
-        const int ny = nw.way[0], nx = nw.way[1];
-        if(ny != inky.y && inky.doYTick){
-          inky.y = ny;
-        }else inky.x = nx;
-      }
-      free(nw.way);
+      shortestWayChaseLogic(&inky, targety, targetx);
       break;
     }
     case SCATTER:
@@ -363,15 +368,7 @@ static void blinkyLogic(double time){
   int origx = blinky.x, origy = blinky.y;
   switch(mode){
     case CHASE:
-      blinky.scattering = 0; //to reset
-      const Way nw = aStar(blinky.y, blinky.x, pacman.y, pacman.x, &map[0][0], HEIGHT, WIDTH);
-      if(nw.size >= 1){
-        const int ny = nw.way[0], nx = nw.way[1];
-        if(ny != blinky.y && blinky.doYTick){
-          blinky.y = ny;
-        }else blinky.x = nx;
-      }
-      free(nw.way);
+      shortestWayChaseLogic(&blinky, pacman.y, pacman.x);
       break;
     case SCATTER:
       {
@@ -412,15 +409,7 @@ static void clydeLogic(double time){
         double distance = sqrt(xdiff * xdiff - ydiff * ydiff);
         if(distance > 8){
           //chase pacman
-          clyde.scattering = 0; //to reset
-          const Way nw = aStar(clyde.y, clyde.x, pacman.y, pacman.x, &map[0][0], HEIGHT, WIDTH);
-          if(nw.size >= 1){
-            const int ny = nw.way[0], nx = nw.way[1];
-            if(ny != clyde.y && clyde.doYTick){
-              clyde.y = ny;
-            }else clyde.x = nx;
-          }
-          free(nw.way);
+          shortestWayChaseLogic(&clyde, pacman.y, pacman.x);
           break;
         }//else no break to scatter
       }
@@ -462,14 +451,7 @@ static void pinkyLogic(double time){
       int mvpy = (pacman.dir == LEFT || pacman.dir == RIGHT) ? 0 : (pacman.dir == UP ? -1 : (pacman.dir == DOWN ? 1 : 0));
       int targetx = MIN(WIDTH - 1, MAX(0, pacman.x + mvpx * 4));
       int targety = MIN(HEIGHT - 1, MAX(0, pacman.y + mvpy * 4));
-      const Way nw = aStar(pinky.y, pinky.x, targety, targetx, &map[0][0], HEIGHT, WIDTH);
-      if(nw.size >= 1){
-        const int ny = nw.way[0], nx = nw.way[1];
-        if(ny != pinky.y && pinky.doYTick){
-          pinky.y = ny;
-        }else pinky.x = nx;
-      }
-      free(nw.way);
+      shortestWayChaseLogic(&pinky, targety, targetx);
       break;
     }
     case SCATTER:
@@ -537,31 +519,26 @@ void runPacman(int highscore){
   //init speedy
   blinky.y = 12;
   blinky.x = 24;
-  blinky.prevFieldContent = ' ';
-  blinky.doYTick = 0;
-  blinky.scattering = 0;
-  blinky.inhouse = -1;
+
   //init blinky
   pinky.y = 12;
   pinky.x = 26;
-  pinky.prevFieldContent = ' ';
-  pinky.doYTick = 0;
-  pinky.inhouse = -1;
-  pinky.scattering = 0;
+
   //init inky
   inky.y = 12;
   inky.x = 30;
-  inky.prevFieldContent = ' ';
-  inky.doYTick = 0;
-  inky.inhouse = -1;
-  inky.scattering = 0;
+
   //init clyde
   clyde.y = 12;
   clyde.x = 32;
-  clyde.prevFieldContent = ' ';
-  clyde.doYTick = 0;
-  clyde.inhouse = -1;
-  clyde.scattering = 0;
+
+  for(int i = 0; i < 4; i++){
+    Ghost* g = ghosts[i];
+    g->prevFieldContent = ' ';
+    g->doYTick = 0;
+    g->scattering = 0;
+    g->inhouse = -1;
+  }
   //init map
   for(int j = 0; j < HEIGHT; j++)
     for(int i = 0; i < WIDTH; i++)
@@ -624,14 +601,11 @@ void runPacman(int highscore){
       setFrightened = 0;
       mode = FRIGHTENED;
       modeTimeStamp = seconds;
-      blinky.walky = 0;
-      blinky.walkx = 0;
-      pinky.walky = 0;
-      pinky.walkx = 0;
-      inky.walky = 0;
-      inky.walkx = 0;
-      clyde.walky = 0;
-      clyde.walkx = 0;
+      for(int i = 0; i < 4; i++){
+        Ghost* g = ghosts[i];
+        g->walky = 0;
+        g->walkx = 0;
+      }
     }
     if(mode != FRIGHTENED && mode != FRIGHTENED_BLINK){
       if(mode == SCATTER && (seconds - modeTimeStamp) > scatterTime){
