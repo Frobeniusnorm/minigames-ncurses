@@ -315,6 +315,21 @@ static void shortestWayChaseLogic(Ghost* g, int targety, int targetx){
   }
   free(nw.way);
 }
+static void ghostCollisionLogic(Ghost*g, double time, int housey, int housex, int origy, int origx, char ghostChar){
+  if(g->y == pacman.y && g->x == pacman.x || origy == pacman.y && origx == pacman.x){
+    if(mode == FRIGHTENED || mode == FRIGHTENED_BLINK){
+      sleep(1);
+      g->y = housey;
+      g->x = housex;
+      g->inhouse = time;
+    }else gameover = 1;
+  }
+  char prev = map[g->y][g->x];
+  if(prev == ' ' || prev == '*' || prev == '.' || prev == 't'){
+    g->prevFieldContent = prev;
+    map[g->y][g->x] = ghostChar;
+  }else g->prevFieldContent = 127;
+}
 static void inkyLogic(double time){
   char prev = inky.prevFieldContent;
   if(prev != 127) map[inky.y][inky.x] = prev;
@@ -348,19 +363,7 @@ static void inkyLogic(double time){
       frightened(&inky, time);
       break;
   }
-  if(inky.y == pacman.y && inky.x == pacman.x || pacman.y == origy && pacman.x == origx){
-    if(mode == FRIGHTENED || mode == FRIGHTENED_BLINK){
-      sleep(1);
-      inky.y = 12;
-      inky.x = 26;
-      inky.inhouse = time;
-    }else gameover = 1;
-  }
-  prev = map[inky.y][inky.x];
-  if(prev == ' ' || prev == '*' || prev == '.' || prev == 't'){
-    inky.prevFieldContent = prev;
-    map[inky.y][inky.x] = 's';
-  }else inky.prevFieldContent = 127;
+  ghostCollisionLogic(&inky, time, 12, 28, origy, origx, 's');
 }
 static void blinkyLogic(double time){
   char prev =  blinky.prevFieldContent;
@@ -382,20 +385,7 @@ static void blinkyLogic(double time){
       frightened(&blinky, time);
       break;
   }
-                                                  // because pacman and the ghosts dont update synchronously
-  if(blinky.y == pacman.y && blinky.x == pacman.x || pacman.y == origy && pacman.x == origx){
-    if(mode == FRIGHTENED || mode == FRIGHTENED_BLINK){
-      sleep(1);
-      blinky.y = 12;
-      blinky.x = 24;
-      blinky.inhouse = time;
-    }else gameover = 1;
-  }
-  prev = map[blinky.y][blinky.x];
-  if(prev == ' ' || prev == '*' || prev == '.' || prev == 't'){
-    blinky.prevFieldContent = prev;
-    map[blinky.y][blinky.x] = 'q';
-  }else blinky.prevFieldContent = 127;
+  ghostCollisionLogic(&blinky, time, 12, 24, origy, origx, 'q');
 }
 static void clydeLogic(double time){
   char prev = clyde.prevFieldContent;
@@ -425,19 +415,7 @@ static void clydeLogic(double time){
       frightened(&clyde, time);
       break;
   }
-  if(clyde.y == pacman.y && clyde.x == pacman.x || pacman.y == origy && pacman.x == origx){
-    if(mode == FRIGHTENED || mode == FRIGHTENED_BLINK){
-      sleep(1);
-      clyde.y = 12;
-      clyde.x = 32;
-      clyde.inhouse = time;
-    }else gameover = 1;
-  }
-  prev = map[clyde.y][clyde.x];
-  if(prev == ' ' || prev == '*' || prev == '.' || prev == 't'){
-    clyde.prevFieldContent = prev;
-    map[clyde.y][clyde.x] = 'u';
-  }else clyde.prevFieldContent = 127;
+  ghostCollisionLogic(&clyde, time, 12, 32, origy, origx, 'u');
 }
 static void pinkyLogic(double time){
   char prev =  pinky.prevFieldContent;
@@ -466,19 +444,7 @@ static void pinkyLogic(double time){
       frightened(&pinky, time);
       break;
   }
-  if(pinky.y == pacman.y && pinky.x == pacman.x || pacman.y == origy && pacman.x == origx){
-    if(mode == FRIGHTENED || mode == FRIGHTENED_BLINK){
-      sleep(1);
-      pinky.y = 12;
-      pinky.x = 26;
-      pinky.inhouse = time;
-    }else gameover = 1;
-  }
-  prev = map[pinky.y][pinky.x];
-  if(prev == ' ' || prev == '*' || prev == '.' || prev == 't'){
-    pinky.prevFieldContent = prev;
-    map[pinky.y][pinky.x] = 'r';
-  }else pinky.prevFieldContent = 127;
+  ghostCollisionLogic(&pinky, time, 12, 26, origy, origx, 'r');
 }
 static void gameLogic(int doYTick){
   int mvx, mvy;
@@ -519,15 +485,12 @@ void runPacman(int highscore){
   //init speedy
   blinky.y = 12;
   blinky.x = 24;
-
   //init blinky
   pinky.y = 12;
   pinky.x = 26;
-
   //init inky
   inky.y = 12;
   inky.x = 30;
-
   //init clyde
   clyde.y = 12;
   clyde.x = 32;
