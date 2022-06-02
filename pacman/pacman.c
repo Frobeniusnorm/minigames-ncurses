@@ -75,6 +75,10 @@ static int canMove(int y, int x){
   //isVisitable would allow the door of the ghost room
   return isVisitable(a) && isVisitable(b) && isVisitable(c) && a != 't' && b != 't' && c != 't';
 }
+//checks if a position is in the house
+static int inHouse(int starty, int startx){
+    return starty > 11 && starty < 14 && startx > 22 && startx < 39;
+}
 static void drawField(WINDOW* win){
 //  box(win, 0, 0);
   wattron(win, COLOR_PAIR(1));
@@ -227,13 +231,20 @@ static void frightened(Ghost* ghost, double time){
       ghost->inhouse = -1;
     return;
   }
+  //if it is in the house it first has to get out
+  if(inHouse(ghost->y, ghost->x)){
+    if(ghost->x != 30)
+      ghost->x += (ghost->x > 30 ? -1 : 1);
+    else if(ghost->doYTick) ghost->y--;
+    return;
+  }
   int options[4] = {1, 1, 1, 1};
   int countop = 0;
   int offsets[4][2] = {{-1, 0}, {1, 0}, {0, -1}, {0, 1}};
   int didy = ghost->walky != 0;
   for(int i = 0; i < 4; i++){
     int cy = ghost->y + offsets[i][0], cx = ghost->x + offsets[i][1];
-    if(cy < 0 || cx < 0 || cy >= HEIGHT || cx >= WIDTH || !isVisitable(map[cy][cx])){
+    if(cy < 0 || cx < 0 || cy >= HEIGHT || cx >= WIDTH || !isVisitable(map[cy][cx]) || map[cy][cx] == 't'){
       options[i] = 0;
       continue;
     }
