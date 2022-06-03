@@ -141,11 +141,18 @@ BUILD_WAY_FROM_NODE:
           continue;
       }else{
         int diffPx = curr.x - curr.prev_x, diffPy = curr.y - curr.prev_y;
+        //teleporting
+        if(diffPx > 1) diffPx = -1;
+        if(diffPx < -1) diffPx = 1;
         if(diffPx != 0 && diffPx == -offsets[i][1] || diffPy != 0 && diffPy == -offsets[i][0]) continue;
       }
       int cy = curr.y + offsets[i][0];
       int cx = curr.x + offsets[i][1];
-      if(cy < height && cy >= 0 && cx < width && cx >= 0){
+      if(cy < height && cy >= 0){
+        if(cx >= width)
+          cx = 0;
+        if(cx < 0)
+          cx = width - 1;
         //check if visitable
         int doVisit = 1;
         for(int off = -1; off <= 1; off+=2){

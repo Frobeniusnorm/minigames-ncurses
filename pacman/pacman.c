@@ -203,10 +203,14 @@ static void drawField(WINDOW* win){
 }
 static void translateMove(int mvy, int mvx, Direction* dir){
     if(mvy > 0) *dir = DOWN;
-    else if(mvx > 0) *dir = RIGHT;
-    else if(mvy < 0) *dir = UP;
-    else if(mvx < 0) *dir = LEFT;
-    //else *dir = NONE;
+    else if(mvx > 0){
+      if(mvx > 1) *dir = LEFT;
+      else *dir = RIGHT;
+   }else if(mvy < 0) *dir = UP;
+    else if(mvx < 0){ *dir = LEFT;
+      if(mvx < -1) *dir = RIGHT;
+      else *dir = LEFT;
+    }
 }
 static void translateDir(Direction dir, int* mvy, int* mvx){
   switch(dir){
