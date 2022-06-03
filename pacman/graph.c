@@ -83,7 +83,10 @@ static void update(vec2i* arr, int size, int y, int x, int distance, double scor
 int isVisitable(char c){
   return c == ' ' || c == 'p' || c == '.' || c == 'q' || c == '*' || c == 'r' || c == 's' || c == 'u' || c == 't';
 }
-Way aStar(int starty, int startx, int goaly, int goalx, char* pacmanField, int height, int width){
+/**
+ * A star algorithm
+ */
+Way aStar(int starty, int startx, int goaly, int goalx, char* pacmanField, int height, int width, int prevDir){
   vec2i* allnodes = calloc(height * width, sizeof(vec2i));
   char* visited = calloc(height * width, sizeof(char));
   //init
@@ -131,6 +134,15 @@ BUILD_WAY_FROM_NODE:
     //get neighbours from pacman field
     const int offsets[4][2] = {{-1, 0}, {1, 0}, {0, -1}, {0, 1}};
     for(int i = 0; i < 4; i++){
+      //check if it would't mean a 180 degree turn
+      if(prevDir != 0){
+        //   left and right           right and left              up and down             down and up
+        if(i == 2 && prevDir == 4 || i == 3 && prevDir == 2 || i == 0 && prevDir == 3 || i == 1 && prevDir == 1)
+          continue;
+      }else{
+        int diffPx = curr.x - curr.prev_x, diffPy = curr.y - curr.prev_y;
+        if(diffPx != 0 && diffPx == -offsets[i][1] || diffPy != 0 && diffPy == -offsets[i][0]) continue;
+      }
       int cy = curr.y + offsets[i][0];
       int cx = curr.x + offsets[i][1];
       if(cy < height && cy >= 0 && cx < width && cx >= 0){
@@ -178,6 +190,7 @@ BUILD_WAY_FROM_NODE:
         }
       }
     }
+    prevDir = 0;
     if(size == 0){ //cant find a way
         curr = allnodes[shortestidx];
         goto BUILD_WAY_FROM_NODE;

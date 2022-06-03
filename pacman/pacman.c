@@ -59,6 +59,7 @@ typedef struct Ghost{
   int scattering;
   double inhouse;
   int walkx, walky;
+  Direction dir;
 } Ghost;
 static Pacman pacman;
 static Ghost blinky, pinky, inky, clyde;
@@ -200,7 +201,13 @@ static void drawField(WINDOW* win){
   }
   wrefresh(win);
 }
-
+static void translateMove(int mvy, int mvx, Direction* dir){
+    if(mvy > 0) *dir = DOWN;
+    else if(mvx > 0) *dir = RIGHT;
+    else if(mvy < 0) *dir = UP;
+    else if(mvx < 0) *dir = LEFT;
+    //else *dir = NONE;
+}
 static void translateDir(Direction dir, int* mvy, int* mvx){
   switch(dir){
     case UP:
@@ -236,6 +243,7 @@ static void frightened(Ghost* ghost, double time){
     if(ghost->x != 30)
       ghost->x += (ghost->x > 30 ? -1 : 1);
     else if(ghost->doYTick) ghost->y--;
+    ghost->dir = UP;
     return;
   }
   int options[4] = {1, 1, 1, 1};
@@ -287,6 +295,19 @@ static void frightened(Ghost* ghost, double time){
     }
   }
 }
+static void shortestWayChaseLogic(Ghost* g, int targety, int targetx){
+  g->scattering = 0; //to reset
+  const Way nw = aStar(g->y, g->x, targety, targetx, &map[0][0], HEIGHT, WIDTH, g->dir);
+  int oldx = g->x, oldy = g->y;
+  if(nw.size >= 1){
+    const int ny = nw.way[0], nx = nw.way[1];
+    if(ny != g->y && g->doYTick){
+      g->y = ny;
+    }else g->x = nx;
+  }
+  translateMove(g->y - oldy, g->x - oldx, &g->dir);
+  free(nw.way);
+}
 static void scatter(Ghost* ghost, int* way, int waysize){
   if(ghost->x == way[0] && ghost->y == way[1])
     ghost->scattering = 1;
@@ -304,34 +325,19 @@ static void scatter(Ghost* ghost, int* way, int waysize){
     ghost->x += ghost->walkx;
     if(ghost->doYTick)
       ghost->y += ghost->walky;
+    translateMove(ghost->walky, ghost->walkx, &ghost->dir);
   }else{
-    const Way nw = aStar(ghost->y, ghost->x, way[1], way[0], &map[0][0], HEIGHT, WIDTH);
-    if(nw.size >= 1){
-      const int ny = nw.way[0], nx = nw.way[1];
-      if(ny != ghost->y && ghost->doYTick){
-        ghost->y = ny;
-      }else ghost->x = nx;
-    }
-    free(nw.way);
+    shortestWayChaseLogic(ghost, way[1], way[0]);
   }
 }
-static void shortestWayChaseLogic(Ghost* g, int targety, int targetx){
-  g->scattering = 0; //to reset
-  const Way nw = aStar(g->y, g->x, targety, targetx, &map[0][0], HEIGHT, WIDTH);
-  if(nw.size >= 1){
-    const int ny = nw.way[0], nx = nw.way[1];
-    if(ny != g->y && g->doYTick){
-      g->y = ny;
-    }else g->x = nx;
-  }
-  free(nw.way);
-}
+
 static void ghostCollisionLogic(Ghost*g, double time, int housey, int housex, int origy, int origx, char ghostChar){
   if(g->y == pacman.y && g->x == pacman.x || origy == pacman.y && origx == pacman.x){
     if(mode == FRIGHTENED || mode == FRIGHTENED_BLINK){
       sleep(1);
       g->y = housey;
       g->x = housex;
+      g->dir = UP;
       g->inhouse = time;
     }else gameover = 1;
   }
@@ -512,6 +518,7 @@ void runPacman(int highscore){
     g->doYTick = 0;
     g->scattering = 0;
     g->inhouse = -1;
+    g->dir = NONE;
   }
   //init map
   for(int j = 0; j < HEIGHT; j++)

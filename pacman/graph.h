@@ -6,6 +6,6 @@ typedef struct Way{
   int size; //number of yx pairs
 } Way;
 
-Way aStar(int starty, int startx, int goaly, int goalx, char* pacmanField, int height, int width);
+Way aStar(int starty, int startx, int goaly, int goalx, char* pacmanField, int height, int width, int prevDir);
 int isVisitable(char c);
 #endif
