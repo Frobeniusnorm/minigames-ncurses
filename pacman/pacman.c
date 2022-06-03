@@ -41,6 +41,9 @@ static const char backup_map[HEIGHT][WIDTH] = {
 
 };
 static char map[HEIGHT][WIDTH];
+static double chaseTime = 20.0, scatterTime = 7.0;
+static int level = 1;
+static double levelStarted;
 typedef enum Direction{
   NONE, UP, LEFT, DOWN, RIGHT
 } Direction;
@@ -68,6 +71,8 @@ static GhostMode mode;
 static int mouthOpen = 0;
 static int gameover = 0;
 static int setFrightened = 0;
+static int points = 0;
+static int remainingDots = 234;
 static int canMove(int y, int x){
   if(y < 0 || x < 0 || y >= HEIGHT || x >= WIDTH) return true; //for teleporting
   char a = map[y][x];
@@ -78,7 +83,7 @@ static int canMove(int y, int x){
 }
 //checks if a position is in the house
 static int inHouse(int starty, int startx){
-    return starty > 11 && starty < 14 && startx > 22 && startx < 39;
+    return starty >= 11 && starty < 14 && startx > 22 && startx < 39;
 }
 static void drawField(WINDOW* win){
 //  box(win, 0, 0);
@@ -199,6 +204,7 @@ static void drawField(WINDOW* win){
 
     }
   }
+  mvprintw(0, 0, "points: %d", points);
   wrefresh(win);
 }
 static void translateMove(int mvy, int mvx, Direction* dir){
@@ -256,20 +262,20 @@ static void frightened(Ghost* ghost, double time){
   int didy = ghost->walky != 0;
   for(int i = 0; i < 4; i++){
     int cy = ghost->y + offsets[i][0], cx = ghost->x + offsets[i][1];
-    if(cy < 0 || cx < 0 || cy >= HEIGHT || cx >= WIDTH || !isVisitable(map[cy][cx]) || map[cy][cx] == 't'){
-      options[i] = 0;
-      continue;
-    }
     int doVisit = 1;
-    for(int off = -1; off <= 1; off+=2){
+    if(cy < 0 || cx < 0 || cy >= HEIGHT || cx >= WIDTH || !isVisitable(map[cy][cx]) || map[cy][cx] == 't'){
+      doVisit = 0;
+    }
+
+    if(doVisit) for(int off = -1; off <= 1; off+=2){
       int nx = cx + off;
-      if(nx < WIDTH && nx >= 0 && !isVisitable(map[cy][nx])){
+      if(nx < WIDTH && nx >= 0 && (!isVisitable(map[cy][nx]) || map[cy][cx] == 't')){
         doVisit = 0;
         break;
       }
     }
     //do not turn around
-    if((ghost->walky != 0 || ghost->walkx != 0) &&
+    if(doVisit && (ghost->walky != 0 || ghost->walkx != 0) &&
          ((offsets[i][0] == 0 && ghost->walky == 0 && offsets[i][1] == -ghost->walkx) ||
           (offsets[i][1] == 0 && ghost->walkx == 0 && offsets[i][0] == -ghost->walky)))
        doVisit = 0;
@@ -343,6 +349,7 @@ static void ghostCollisionLogic(Ghost*g, double time, int housey, int housex, in
       g->x = housex;
       g->dir = UP;
       g->inhouse = time;
+      points += 5;
     }else gameover = 1;
   }
   char prev = map[g->y][g->x];
@@ -355,38 +362,41 @@ static void inkyLogic(double time){
   char prev = inky.prevFieldContent;
   if(prev != 127) map[inky.y][inky.x] = prev;
   int origx = inky.x, origy = inky.y;
-  switch(mode){
-    case CHASE:
-    {
-      inky.scattering = 0;
-      int mvpx = (pacman.dir == UP || pacman.dir == DOWN)? 0 : (pacman.dir == LEFT ? -1 : (pacman.dir == RIGHT ? 1 : 0));
-      int mvpy = (pacman.dir == LEFT || pacman.dir == RIGHT) ? 0 : (pacman.dir == UP ? -1 : (pacman.dir == DOWN ? 1 : 0));
-      int targetx = pacman.x + mvpx * 2;
-      int targety = pacman.y + mvpy * 2;
-      //two ahead now mirror by blinky
-      targetx += targetx - blinky.x;
-      targety += targety - blinky.y;
-      targetx = MIN(WIDTH-1, MAX(0, targetx));
-      targety = MIN(HEIGHT-1, MAX(0, targety));
-
-      shortestWayChaseLogic(&inky, targety, targetx);
-      break;
-    }
-    case SCATTER:
+  if(time - levelStarted >= (7-level)){ //i sleep in house with initial 6s
+    switch(mode){
+      case CHASE:
       {
-        int way[12] = {59, 18, 59, 21, 53, 21, 53, 25, 47, 25, 47, 18};
-        scatter(&inky, &way[0], 6);
+        inky.scattering = 0;
+        int mvpx = (pacman.dir == UP || pacman.dir == DOWN)? 0 : (pacman.dir == LEFT ? -1 : (pacman.dir == RIGHT ? 1 : 0));
+        int mvpy = (pacman.dir == LEFT || pacman.dir == RIGHT) ? 0 : (pacman.dir == UP ? -1 : (pacman.dir == DOWN ? 1 : 0));
+        int targetx = pacman.x + mvpx * 2;
+        int targety = pacman.y + mvpy * 2;
+        //two ahead now mirror by blinky
+        targetx += targetx - blinky.x;
+        targety += targety - blinky.y;
+        targetx = MIN(WIDTH-1, MAX(0, targetx));
+        targety = MIN(HEIGHT-1, MAX(0, targety));
+
+        shortestWayChaseLogic(&inky, targety, targetx);
+        break;
       }
-      break;
-    case FRIGHTENED_BLINK:
-    case FRIGHTENED:
-      inky.scattering = 0;
-      frightened(&inky, time);
-      break;
+      case SCATTER:
+        {
+          int way[12] = {59, 18, 59, 21, 53, 21, 53, 25, 47, 25, 47, 18};
+          scatter(&inky, &way[0], 6);
+        }
+        break;
+      case FRIGHTENED_BLINK:
+      case FRIGHTENED:
+        inky.scattering = 0;
+        frightened(&inky, time);
+        break;
+    }
   }
   ghostCollisionLogic(&inky, time, 12, 28, origy, origx, 's');
 }
 static void blinkyLogic(double time){
+  //i dont sleep
   char prev =  blinky.prevFieldContent;
   if(prev != 127) map[blinky.y][blinky.x] = prev;
   int origx = blinky.x, origy = blinky.y;
@@ -412,29 +422,31 @@ static void clydeLogic(double time){
   char prev = clyde.prevFieldContent;
   if(prev != 127) map[clyde.y][clyde.x] = prev;
   int origx = clyde.x, origy = clyde.y;
-  switch(mode){
-    case CHASE:
-      {
-        int xdiff = pacman.x - clyde.x;
-        int ydiff = pacman.y - clyde.y;
-        double distance = sqrt(xdiff * xdiff - ydiff * ydiff);
-        if(distance > 8){
-          //chase pacman
-          shortestWayChaseLogic(&clyde, pacman.y, pacman.x);
+  if(time - levelStarted >= (8-level)){ //i sleep in house with initial 7s
+    switch(mode){
+      case CHASE:
+        {
+          int xdiff = pacman.x - clyde.x;
+          int ydiff = pacman.y - clyde.y;
+          double distance = sqrt(xdiff * xdiff - ydiff * ydiff);
+          if(distance > 8){
+            //chase pacman
+            shortestWayChaseLogic(&clyde, pacman.y, pacman.x);
+            break;
+          }//else no break to scatter
+        }
+      case SCATTER:
+        {
+          int way[12] = {2, 18, 2, 21, 8, 21, 8, 25, 14, 25, 14, 18};
+          scatter(&clyde, &way[0], 6);
           break;
-        }//else no break to scatter
-      }
-    case SCATTER:
-      {
-        int way[12] = {2, 18, 2, 21, 8, 21, 8, 25, 14, 25, 14, 18};
-        scatter(&clyde, &way[0], 6);
+        }
+      case FRIGHTENED_BLINK:
+      case FRIGHTENED:
+        clyde.scattering = 0;
+        frightened(&clyde, time);
         break;
-      }
-    case FRIGHTENED_BLINK:
-    case FRIGHTENED:
-      clyde.scattering = 0;
-      frightened(&clyde, time);
-      break;
+    }
   }
   ghostCollisionLogic(&clyde, time, 12, 32, origy, origx, 'u');
 }
@@ -442,60 +454,42 @@ static void pinkyLogic(double time){
   char prev =  pinky.prevFieldContent;
   if(prev != 127) map[pinky.y][pinky.x] = prev;
   int origx = pinky.x, origy = pinky.y;
-  switch(mode){
-    case CHASE:
-    {
-      pinky.scattering = 0;
-      int mvpx = (pacman.dir == UP || pacman.dir == DOWN)? 0 : (pacman.dir == LEFT ? -1 : (pacman.dir == RIGHT ? 1 : 0));
-      int mvpy = (pacman.dir == LEFT || pacman.dir == RIGHT) ? 0 : (pacman.dir == UP ? -1 : (pacman.dir == DOWN ? 1 : 0));
-      int targetx = MIN(WIDTH - 1, MAX(0, pacman.x + mvpx * 4));
-      int targety = MIN(HEIGHT - 1, MAX(0, pacman.y + mvpy * 4));
-      shortestWayChaseLogic(&pinky, targety, targetx);
-      break;
-    }
-    case SCATTER:
+  if(time - levelStarted >= (5-level)){ //i sleep in house with initial 4s
+    switch(mode){
+      case CHASE:
       {
-        int way[8] = {2, 1, 2, 4, 14, 4, 14, 1};
-        scatter(&pinky, &way[0], 4);
+        pinky.scattering = 0;
+        int mvpx = (pacman.dir == UP || pacman.dir == DOWN)? 0 : (pacman.dir == LEFT ? -1 : (pacman.dir == RIGHT ? 1 : 0));
+        int mvpy = (pacman.dir == LEFT || pacman.dir == RIGHT) ? 0 : (pacman.dir == UP ? -1 : (pacman.dir == DOWN ? 1 : 0));
+        int targetx = MIN(WIDTH - 1, MAX(0, pacman.x + mvpx * 4));
+        int targety = MIN(HEIGHT - 1, MAX(0, pacman.y + mvpy * 4));
+        shortestWayChaseLogic(&pinky, targety, targetx);
+        break;
       }
-      break;
-    case FRIGHTENED_BLINK:
-    case FRIGHTENED:
-      pinky.scattering = 0;
-      frightened(&pinky, time);
-      break;
+      case SCATTER:
+        {
+          int way[8] = {2, 1, 2, 4, 14, 4, 14, 1};
+          scatter(&pinky, &way[0], 4);
+        }
+        break;
+      case FRIGHTENED_BLINK:
+      case FRIGHTENED:
+        pinky.scattering = 0;
+        frightened(&pinky, time);
+        break;
+    }
   }
   ghostCollisionLogic(&pinky, time, 12, 26, origy, origx, 'r');
 }
-static void gameLogic(int doYTick){
-  int mvx, mvy;
-  //check for desired dir
-  if(pacman.desiredDir != NONE && pacman.desiredDir != pacman.dir){
-    translateDir(pacman.desiredDir, &mvy, &mvx);
-    if(canMove(pacman.y + mvy, pacman.x + mvx)){
-      pacman.dir = pacman.desiredDir;
-      pacman.desiredDir = NONE;
-    }
-  }
-  //movement tick
-  translateDir(pacman.dir, &mvy, &mvx);
-  if(!doYTick) mvy = 0;
-  if(canMove(pacman.y + mvy, pacman.x + mvx)){
-    map[pacman.y][pacman.x] = ' ';
-    pacman.y += mvy;
-    pacman.x += mvx;
-    if(pacman.x < 0) pacman.x = WIDTH-1;
-    if(pacman.x >= WIDTH) pacman.x = 0;
-    if(map[pacman.y][pacman.x] == '*') setFrightened = 1;
-    map[pacman.y][pacman.x] = 'p';
-  }
-}
-void runPacman(int highscore){
-  timeout(1);
-  clear();
-	refresh();
+static void defaultParameters(double time){
   gameover = 0;
   setFrightened = 0;
+  remainingDots = 234;
+  levelStarted = time;
+  //init map
+  for(int j = 0; j < HEIGHT; j++)
+    for(int i = 0; i < WIDTH; i++)
+      map[j][i] = backup_map[j][i];
   //init pacman
   pacman.y = 21;
   pacman.x = 28;
@@ -524,11 +518,53 @@ void runPacman(int highscore){
     g->inhouse = -1;
     g->dir = NONE;
   }
-  //init map
-  for(int j = 0; j < HEIGHT; j++)
-    for(int i = 0; i < WIDTH; i++)
-      map[j][i] = backup_map[j][i];
+}
+static void increaseLevel(double time){
+  defaultParameters(time);
+  if(!(++level % 2))
+    scatterTime --;
+  points += 10;
 
+}
+static void gameLogic(int doYTick, double time){
+  int mvx, mvy;
+  //check for desired dir
+  if(pacman.desiredDir != NONE && pacman.desiredDir != pacman.dir){
+    translateDir(pacman.desiredDir, &mvy, &mvx);
+    if(canMove(pacman.y + mvy, pacman.x + mvx)){
+      pacman.dir = pacman.desiredDir;
+      pacman.desiredDir = NONE;
+    }
+  }
+  //movement tick
+  translateDir(pacman.dir, &mvy, &mvx);
+  if(!doYTick) mvy = 0;
+  if(canMove(pacman.y + mvy, pacman.x + mvx)){
+    map[pacman.y][pacman.x] = ' ';
+    pacman.y += mvy;
+    pacman.x += mvx;
+    if(pacman.x < 0) pacman.x = WIDTH-1;
+    if(pacman.x >= WIDTH) pacman.x = 0;
+    if(map[pacman.y][pacman.x] == '*') setFrightened = 1;
+    if(map[pacman.y][pacman.x] == '.'){
+      points++;
+      remainingDots--;
+      if(remainingDots == 0){
+        sleep(1);
+        //-> next level
+        increaseLevel(time);
+      }
+    }
+    map[pacman.y][pacman.x] = 'p';
+  }
+}
+void runPacman(int highscore){
+  timeout(1);
+  clear();
+	refresh();
+  defaultParameters(-1);
+  points = 0;
+  level = 1;
   //create window
   WINDOW* win = newwin(HEIGHT + 1, WIDTH, 2, 2);
   int closeRequest = 0;
@@ -550,9 +586,9 @@ void runPacman(int highscore){
   init_pair(7, COLOR_CYAN, COLOR_BLACK); //inky
   init_pair(8, COLOR_MAGENTA, COLOR_BLACK); //clyde
   //for time
-  const double chaseTime = 20.0, scatterTime = 7.0; //TODO: change for different levels
   struct timespec time;
-	double pacmanTimeStamp = 0, speedyTimeStamp = 0, modeTimeStamp = 0;
+	double pacmanTimeStamp = 0, speedyTimeStamp = 0, modeTimeStamp = 0, pinkyTimeStamp = 0, inkyTimeStamp = 0;
+  chaseTime = 20.0, scatterTime = 7.0;
   //game loop
   int doYTick = 1;
   while(!closeRequest && !gameover){
@@ -577,6 +613,7 @@ void runPacman(int highscore){
     }
     clock_gettime(CLOCK_REALTIME, &time);
     double seconds = time.tv_sec + (time.tv_nsec / 1000000000.0);
+    if(levelStarted == -1) levelStarted = seconds;
     int toDraw = 0;
     if(pacmanTimeStamp == 0){
       pacmanTimeStamp = speedyTimeStamp = modeTimeStamp = seconds;
@@ -605,21 +642,27 @@ void runPacman(int highscore){
       modeTimeStamp = seconds;
     }else if(seconds - modeTimeStamp > 10.0)
       mode = FRIGHTENED_BLINK;
-
+    if(scatterTime == 0 && mode == SCATTER) mode = CHASE;
     //blinky timer
     if((seconds - speedyTimeStamp) > 0.12){
-      pinky.doYTick = (pinky.doYTick + 1) % 2;
-      pinkyLogic(seconds); //todo: pinky must be slower than blinky
-      inky.doYTick = (blinky.doYTick + 1) % 2;
-      inkyLogic(seconds); //todo: inky must be slower than blinky
       blinky.doYTick = (blinky.doYTick + 1) % 2;
       blinkyLogic(seconds);
-      clyde.doYTick = (clyde.doYTick + 1) % 2;
-      clydeLogic(seconds); //todo: clyde must be slower than blinky
       speedyTimeStamp = seconds;
     }
+    if((seconds - pinkyTimeStamp) > 0.14){
+      pinky.doYTick = (pinky.doYTick + 1) % 2;
+      pinkyLogic(seconds);
+      pinkyTimeStamp = seconds;
+    }
+    if((seconds - inkyTimeStamp) > 0.16){
+      clyde.doYTick = (clyde.doYTick + 1) % 2;
+      clydeLogic(seconds);
+      inky.doYTick = (blinky.doYTick + 1) % 2;
+      inkyLogic(seconds);
+      inkyTimeStamp = seconds;
+    }
     if((seconds - pacmanTimeStamp) > 0.1){
-      gameLogic(doYTick);
+      gameLogic(doYTick, seconds);
       //only move every second frame on y
       doYTick = (doYTick + 1) % 2;
       mouthOpen = (mouthOpen + 1) % 8;
