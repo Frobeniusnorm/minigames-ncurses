@@ -23,7 +23,7 @@ static const char backup_map[HEIGHT][WIDTH] = {
   "            | . | a-----d . c----d . c-----b | . |            ",
   "            | . | |                        | | . |            ",
   "            | . | |   a------tttt------b   | | . |            ",
-  "------------d . c-d   | q              |   c-d . c------------",
+  "------------d . c-d   |                |   c-d . c------------",
   ". . . . . . . .       |                |       . . . . . . . .",
   "------------b . a-b   c----------------d   a-b . a------------",
   "            | . | |                        | | . |            ",
@@ -72,7 +72,9 @@ static int mouthOpen = 0;
 static int gameover = 0;
 static int setFrightened = 0;
 static int points = 0;
+static int lives = 3;
 static int remainingDots = 234;
+static WINDOW* win;
 static int canMove(int y, int x){
   if(y < 0 || x < 0 || y >= HEIGHT || x >= WIDTH) return true; //for teleporting
   char a = map[y][x];
@@ -205,6 +207,12 @@ static void drawField(WINDOW* win){
     }
   }
   mvprintw(0, 0, "points: %d", points);
+  //draw lives
+  attron(COLOR_PAIR(3));
+  for(int i = 0; i < lives; i++){
+    mvaddch(HEIGHT + 2, (i + 1) * 2, '<');
+  }
+  attroff(COLOR_PAIR(3));
   wrefresh(win);
 }
 static void translateMove(int mvy, int mvx, Direction* dir){
@@ -340,7 +348,50 @@ static void scatter(Ghost* ghost, int* way, int waysize){
     shortestWayChaseLogic(ghost, way[1], way[0]);
   }
 }
+static void defaultPositions(){
+  //init pacman
+  pacman.y = 21;
+  pacman.x = 28;
+  pacman.dir = RIGHT;
+  pacman.desiredDir = NONE;
+  map[pacman.y][pacman.x] = 'p';
+  //init ghosts
+  mode = SCATTER;
+  //init speedy
+  blinky.y = 12;
+  blinky.x = 24;
+  //init blinky
+  pinky.y = 12;
+  pinky.x = 26;
+  //init inky
+  inky.y = 12;
+  inky.x = 30;
+  //init clyde
+  clyde.y = 12;
+  clyde.x = 32;
 
+  for(int i = 0; i < 4; i++){
+    Ghost* g = ghosts[i];
+    g->prevFieldContent = ' ';
+    g->doYTick = 0;
+    g->scattering = 0;
+    g->inhouse = -1;
+    g->dir = NONE;
+  }
+}
+static void countDown(){
+  drawField(win);
+  wattron(win, COLOR_PAIR(5));
+  mvwprintw(win, HEIGHT / 2, WIDTH/2 - 3, "Ready?");
+  wrefresh(win);
+  usleep(500 * 1000);
+  mvwprintw(win, HEIGHT / 2, WIDTH/2 - 3, "      ");
+  for(int i = 3; i >= 1; i--){
+    mvwprintw(win, HEIGHT / 2, WIDTH/2, "%d", i);
+    wrefresh(win);
+    usleep(500 * 1000);
+  }
+}
 static void ghostCollisionLogic(Ghost*g, double time, int housey, int housex, int origy, int origx, char ghostChar){
   if(g->y == pacman.y && g->x == pacman.x || origy == pacman.y && origx == pacman.x){
     if(mode == FRIGHTENED || mode == FRIGHTENED_BLINK){
@@ -350,7 +401,18 @@ static void ghostCollisionLogic(Ghost*g, double time, int housey, int housex, in
       g->dir = UP;
       g->inhouse = time;
       points += 5;
-    }else gameover = 1;
+    }else{
+      if(--lives == 0) gameover = 1;
+      else{
+        sleep(1);
+        for(int i = 0; i < 4; i++){
+          Ghost* g = ghosts[i];
+          map[g->y][g->x] = g->prevFieldContent;
+        }
+        defaultPositions();
+        countDown();
+      }
+    }
   }
   char prev = map[g->y][g->x];
   if(prev == ' ' || prev == '*' || prev == '.' || prev == 't'){
@@ -490,41 +552,14 @@ static void defaultParameters(double time){
   for(int j = 0; j < HEIGHT; j++)
     for(int i = 0; i < WIDTH; i++)
       map[j][i] = backup_map[j][i];
-  //init pacman
-  pacman.y = 21;
-  pacman.x = 28;
-  pacman.dir = RIGHT;
-  pacman.desiredDir = NONE;
-  //init ghosts
-  mode = SCATTER;
-  //init speedy
-  blinky.y = 12;
-  blinky.x = 24;
-  //init blinky
-  pinky.y = 12;
-  pinky.x = 26;
-  //init inky
-  inky.y = 12;
-  inky.x = 30;
-  //init clyde
-  clyde.y = 12;
-  clyde.x = 32;
-
-  for(int i = 0; i < 4; i++){
-    Ghost* g = ghosts[i];
-    g->prevFieldContent = ' ';
-    g->doYTick = 0;
-    g->scattering = 0;
-    g->inhouse = -1;
-    g->dir = NONE;
-  }
+  defaultPositions();
 }
 static void increaseLevel(double time){
   defaultParameters(time);
   if(!(++level % 2))
     scatterTime --;
   points += 10;
-
+  countDown();
 }
 static void gameLogic(int doYTick, double time){
   int mvx, mvy;
@@ -565,8 +600,9 @@ void runPacman(int highscore){
   defaultParameters(-1);
   points = 0;
   level = 1;
+  lives = 3;
   //create window
-  WINDOW* win = newwin(HEIGHT + 1, WIDTH, 2, 2);
+  win = newwin(HEIGHT + 1, WIDTH, 2, 2);
   int closeRequest = 0;
   //colors
   init_color(COLOR_BLACK, 0, 0, 0);
@@ -591,6 +627,7 @@ void runPacman(int highscore){
   chaseTime = 20.0, scatterTime = 7.0;
   //game loop
   int doYTick = 1;
+  countDown();
   while(!closeRequest && !gameover){
     //input handling runs nvtl
     int c = getch();
