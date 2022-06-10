@@ -21,14 +21,13 @@ static void printMenu(WINDOW* win, int currentChoice){
 static void initMenu(){
   int width, height;
   
-/*   
   SafeFile* sf = loadSafeFile();
-  for(int i = 0; i < 4; i++){
+  for(int i = 0; i < 3; i++){
     if(getGame(sf, choices[i]) == NULL){
       createGame(sf, choices[i]);
-    }
-  } */
-  //updateSafeFile(sf);
+    } 
+  } 
+  updateSafeFile(sf);
 
   getmaxyx(stdscr, height, width);
   const int sizex = 30, sizey = 10;
@@ -76,11 +75,10 @@ static void initMenu(){
         break;
     }
   }
- // freeSaveFile(sf);
+  freeSaveFile(sf);
 }
 
 int main(){
-
   srand(time(0));
 	initscr();
   	if(!has_colors()){

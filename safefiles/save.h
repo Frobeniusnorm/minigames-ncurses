@@ -39,6 +39,7 @@ void storeIntValue(GameValues*, const char*, int);
 void storeStringValue(GameValues*, const char*, char*);
 //finds the property with the given name
 void storeDoubleValue(GameValues*, const char*, double);
-
+//tests if the property exists
+int existsProperty(GameValues*, const char*);
 
 #endif

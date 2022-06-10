@@ -19,10 +19,10 @@ static char* readAndMallocString(FILE* file){
     char read[1024];
     int index = 0;
     do{
-        read[index] = fgetc(file);
-    }while(read[index++] != '\0' && read[index++] != EOF);
+        read[index++] = fgetc(file);
+    }while(read[index - 1] != '\0' && read[index - 1] != EOF);
     char* foo = malloc(index);
-    memcpy(foo, &read[0], index);
+    memcpy(foo, &read[0], index );
     return foo;
 }
 void findPath(char** dir, char** file){
@@ -31,13 +31,13 @@ void findPath(char** dir, char** file){
 
     char* append = "/.config/minigames-ncurses/";
     int lenhome = strlen(homedir);
-    char* path = (char*)malloc(lenhome + strlen(append));
-    memcpy(path, homedir, lenhome);
+    char* path = (char*)malloc(lenhome + strlen(append) + 1);
+    memcpy(path, homedir, lenhome + 1);
     strcat(path, append);
     if(dir != NULL) *dir = path;
     if(file != NULL){
-        char* fpath = (char*)malloc(lenhome + strlen(append) + 6);
-        memcpy(fpath, path, lenhome + strlen(append));
+        char* fpath = (char*)malloc(lenhome + strlen(append) + 7);
+        memcpy(fpath, path, lenhome + strlen(append)  + 1);
         strcat(fpath, "config");
         *file = fpath;
     }
@@ -50,7 +50,8 @@ SafeFile* loadSafeFile(){
     if(stat(dir, &st) == -1) {
         mkdir(dir, 0700);
     }
-    FILE* file = fopen(path, "r");
+    FILE* file = fopen(path, "a+"); //so that it exists
+
     SafeFile* safeFile = (SafeFile*) malloc(sizeof(SafeFile));
     safeFile->exists = file != NULL;
     safeFile->number = 0;
@@ -64,7 +65,9 @@ SafeFile* loadSafeFile(){
             //read string from file
             GameValues* curr = &safeFile->games[g];
             curr->gameName = readAndMallocString(file);
-            if(fread(&(curr->number), 4, 1, file) == 0) goto EXIT_POINT;
+            int numProp = 0;
+            if(fread(&numProp, 4, 1, file) == 0) goto EXIT_POINT;
+            curr->number = numProp;
             curr->properties = (Property*) malloc(sizeof(Property) * curr->number);
             for(int p = 0; p < curr->number; p++){
                 Property* prop = &curr->properties[p];
@@ -97,17 +100,17 @@ void freeSaveFile(SafeFile* file){
 void updateSafeFile(SafeFile* sf){
     char* path = "~/.config/minigames-ncurses/highscores";
     findPath(NULL, &path);
-    FILE* file = fopen(path, "w");
-    if(file != NULL){
+    FILE* file = fopen(path, "w+");
+    if(file){
         fwrite(&sf->number, 4, 1, file);
         for(int g = 0; g < sf->number; g++){
             GameValues* gv = &sf->games[g];
-            fwrite(gv->gameName, 1, strlen(gv->gameName), file);
-            fwrite(&gv->number, 4, 1, file);
+            fwrite(&gv->gameName[0], 1, strlen(gv->gameName) + 1, file);
+            fwrite(&gv->number, sizeof(int), 1, file);
             for(int p = 0; p < gv->number; p++){
                 Property* prop = &gv->properties[p];
-                fwrite(&prop->key, 1, strlen(prop->key), file);
-                fwrite(&prop->value, 1, strlen(prop->value), file);
+                fwrite(&prop->key, 1, strlen(prop->key) + 1, file);
+                fwrite(&prop->value, 1, strlen(prop->value) + 1, file);
             }
         }
         fclose(file);
@@ -127,8 +130,10 @@ void createGame(SafeFile* sf, const char* name){
     sf->number++;
     if(sf->number == 1) sf->games = (GameValues*) malloc(sizeof(GameValues));
     else sf->games = (GameValues*) realloc(sf->games, sf->number * sizeof(GameValues));
+    int name_len = strlen(name);
     GameValues* val = (GameValues*) &sf->games[sf->number-1];
-    memcpy(val->gameName, name, strlen(name));
+    val->gameName = (char*) malloc(name_len + 1);
+    memcpy(val->gameName, name, name_len + 1);
     val->number = 0;
     val->properties = NULL;
 }
@@ -140,7 +145,12 @@ int getIntValue(GameValues* gv, const char* name){
     }
     return 0;
 }
-
+int existsProperty(GameValues* gv, const char* name){
+    for(int i = 0; i < gv->number; i++)
+        if(strcmp(gv->properties[i].value, name) == 0)
+            return 1;
+    return 0;
+}
 char* getStringValue(GameValues* gv, const char* name){
     for (int i = 0; i < gv->number; i++) {
         if(strcmp(gv->properties[i].value, name) == 0)
@@ -174,10 +184,13 @@ void storeIntValue(GameValues* gv, const char* name, int val){
         else gv->properties = realloc(gv->properties, sizeof(Property) * gv->number);
         Property* prop = &gv->properties[gv->number - 1];
         int size = strlen(name);
-        prop->key = malloc(size);
-        memcpy(prop->key, name, size);
-        prop->value = malloc(4);
-        *((int*)prop->value) = val;
+        prop->key = malloc(size + 1);
+        memcpy(prop->key, name, size + 1);
+        char number[20];
+        sprintf(&number[0], "%d", val);
+        size = strlen(&number[0]);
+        prop->value = malloc(size + 1);
+        strcpy(prop->value, &number[0]);
     }
 }
 
@@ -202,8 +215,8 @@ void storeStringValue(GameValues* gv, const char* name, char* val){
         int size = strlen(name);
         prop->key = malloc(size);
         memcpy(prop->key, name, size);
-        prop->value = malloc(valsize);
-        memcpy(prop->value, val, valsize);
+        prop->value = malloc(valsize + 1);
+        memcpy(prop->value, val, valsize + 1);
     }
 }
 
@@ -226,7 +239,10 @@ void storeDoubleValue(GameValues* gv, const char* name, double val){
         int size = strlen(name);
         prop->key = malloc(size);
         memcpy(prop->key, name, size);
-        prop->value = malloc(4);
-        *((double*)prop->value) = val;
+        char number[20];
+        sprintf(&number[0], "%f", val);
+        size = strlen(&number[0]);
+        prop->value = malloc(size + 1);
+        strcpy(prop->value, &number[0]);
     }
 }
