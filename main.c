@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include "snake/snake.h"
+#include "safefiles/save.h"
 #include "tetris/tetris.h"
 #include "pacman/pacman.h"
 static const char* choices[] = {"Snake", "Tetris", "Pacman", "Exit"};
@@ -19,6 +20,16 @@ static void printMenu(WINDOW* win, int currentChoice){
 }
 static void initMenu(){
   int width, height;
+  
+/*   
+  SafeFile* sf = loadSafeFile();
+  for(int i = 0; i < 4; i++){
+    if(getGame(sf, choices[i]) == NULL){
+      createGame(sf, choices[i]);
+    }
+  } */
+  //updateSafeFile(sf);
+
   getmaxyx(stdscr, height, width);
   const int sizex = 30, sizey = 10;
   WINDOW* menu = newwin(sizey, sizex, height/2 - sizey/2, width/2 - sizex/2);
@@ -65,9 +76,11 @@ static void initMenu(){
         break;
     }
   }
+ // freeSaveFile(sf);
 }
 
 int main(){
+
   srand(time(0));
 	initscr();
   	if(!has_colors()){
