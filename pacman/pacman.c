@@ -1,61 +1,62 @@
 #include "pacman.h"
 #include "graph.h"
-#include <stdio.h>
+#include <math.h>
 #include <ncurses.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
 #include <unistd.h>
-#include <math.h>
 #define WIDTH 62
 #define HEIGHT 27
 #define MIN(X, Y) (((X) < (Y)) ? (X) : (Y))
 #define MAX(X, Y) (((X) > (Y)) ? (X) : (Y))
 static const char backup_map[HEIGHT][WIDTH] = {
-  "a-----------------------------ba-----------------------------b",
-  "| . . . . . . . . . . . . . . || . . . . . . . . . . . . . . |",
-  "| * a-------b . a---------b . || . a---------b . a-------b * |",
-  "| . c-------d . c---------d . cd . c---------d . c-------d . |",
-  "| . . . . . . . . . . . . . .    . . . . . . . . . . . . . . |",
-  "| . a-------b . a-b . a----------------b . a-b . a-------b . |",
-  "| . c-------d . | | . c-----b    a-----d . | | . c-------d . |",
-  "| . . . . . . . | | . . . . |    | . . . . | | . . . . . . . |",
-  "c-----------b . | c-----b . |    | . a-----d | . a-----------d",
-  "            | . | a-----d . c----d . c-----b | . |            ",
-  "            | . | |                        | | . |            ",
-  "            | . | |   a------tttt------b   | | . |            ",
-  "------------d . c-d   |                |   c-d . c------------",
-  ". . . . . . . .       |                |       . . . . . . . .",
-  "------------b . a-b   c----------------d   a-b . a------------",
-  "            | . | |                        | | . |            ",
-  "            | . | |   a----------------b   | | . |            ",
-  "a-----------d . c-d   c-----b    a-----d   c-d . c-----------b",
-  "| . . . . . . . . . . . . . |    | . . . . . . . . . . . . . |",
-  "| . a-------b . a-------b . |    | . a-------b . a-------b . |",
-  "| . c-----b | . c-------d . c----d . c-------d . | a-----d . |",
-  "| * . . . | | . . . . . . .        . . . . . . . | | . . . * |",
-  "c-----b . | | . a-b . a----------------b . a-b . | | . a-----d",
-  "      | . | | . | | . |                | . | | . | | . |      ",
-  "      | . c-d . c-d . c----------------d . c-d . c-d . |      ",
-  "      | . . . . . . . .   .  .  .  .   . . . . . . . . |      ",
-  "      c------------------------------------------------d      "
+    "a-----------------------------ba-----------------------------b",
+    "| . . . . . . . . . . . . . . || . . . . . . . . . . . . . . |",
+    "| * a-------b . a---------b . || . a---------b . a-------b * |",
+    "| . c-------d . c---------d . cd . c---------d . c-------d . |",
+    "| . . . . . . . . . . . . . .    . . . . . . . . . . . . . . |",
+    "| . a-------b . a-b . a----------------b . a-b . a-------b . |",
+    "| . c-------d . | | . c-----b    a-----d . | | . c-------d . |",
+    "| . . . . . . . | | . . . . |    | . . . . | | . . . . . . . |",
+    "c-----------b . | c-----b . |    | . a-----d | . a-----------d",
+    "            | . | a-----d . c----d . c-----b | . |            ",
+    "            | . | |                        | | . |            ",
+    "            | . | |   a------tttt------b   | | . |            ",
+    "------------d . c-d   |                |   c-d . c------------",
+    ". . . . . . . .       |                |       . . . . . . . .",
+    "------------b . a-b   c----------------d   a-b . a------------",
+    "            | . | |                        | | . |            ",
+    "            | . | |   a----------------b   | | . |            ",
+    "a-----------d . c-d   c-----b    a-----d   c-d . c-----------b",
+    "| . . . . . . . . . . . . . |    | . . . . . . . . . . . . . |",
+    "| . a-------b . a-------b . |    | . a-------b . a-------b . |",
+    "| . c-----b | . c-------d . c----d . c-------d . | a-----d . |",
+    "| * . . . | | . . . . . . .        . . . . . . . | | . . . * |",
+    "c-----b . | | . a-b . a----------------b . a-b . | | . a-----d",
+    "      | . | | . | | . |                | . | | . | | . |      ",
+    "      | . c-d . c-d . c----------------d . c-d . c-d . |      ",
+    "      | . . . . . . . .   .  .  .  .   . . . . . . . . |      ",
+    "      c------------------------------------------------d      "
 
 };
 static char map[HEIGHT][WIDTH];
 static double chaseTime = 20.0, scatterTime = 7.0;
 static int level = 1;
 static double levelStarted;
-typedef enum Direction{
-  NONE, UP, LEFT, DOWN, RIGHT
-} Direction;
-typedef enum GhostMode{
-  CHASE, SCATTER, FRIGHTENED, FRIGHTENED_BLINK
+typedef enum Direction { NONE, UP, LEFT, DOWN, RIGHT } Direction;
+typedef enum GhostMode {
+  CHASE,
+  SCATTER,
+  FRIGHTENED,
+  FRIGHTENED_BLINK
 } GhostMode;
-typedef struct Pacman{
+typedef struct Pacman {
   int x, y;
   Direction desiredDir;
   Direction dir;
 } Pacman;
-typedef struct Ghost{
+typedef struct Ghost {
   int x, y;
   char prevFieldContent;
   int doYTick;
@@ -66,7 +67,7 @@ typedef struct Ghost{
 } Ghost;
 static Pacman pacman;
 static Ghost blinky, pinky, inky, clyde;
-static Ghost* ghosts[4] = {&blinky, &pinky, &inky, &clyde};
+static Ghost *ghosts[4] = {&blinky, &pinky, &inky, &clyde};
 static GhostMode mode;
 static int mouthOpen = 0;
 static int gameover = 0;
@@ -74,193 +75,222 @@ static int setFrightened = 0;
 static int points = 0;
 static int lives = 3;
 static int remainingDots = 234;
-static WINDOW* win;
-static int canMove(int y, int x){
-  if(y < 0 || x < 0 || y >= HEIGHT || x >= WIDTH) return true; //for teleporting
+static WINDOW *win;
+static int canMove(int y, int x) {
+  if (y < 0 || x < 0 || y >= HEIGHT || x >= WIDTH)
+    return true; // for teleporting
   char a = map[y][x];
-  char b = x < WIDTH - 1 ? map[y][x+1] : ' ';
-  char c = x > 0 ? map[y][x-1] : ' ';
-  //isVisitable would allow the door of the ghost room
-  return isVisitable(a) && isVisitable(b) && isVisitable(c) && a != 't' && b != 't' && c != 't';
+  char b = x < WIDTH - 1 ? map[y][x + 1] : ' ';
+  char c = x > 0 ? map[y][x - 1] : ' ';
+  // isVisitable would allow the door of the ghost room
+  return isVisitable(a) && isVisitable(b) && isVisitable(c) && a != 't' &&
+         b != 't' && c != 't';
 }
-//checks if a position is in the house
-static int inHouse(int starty, int startx){
-    return starty >= 11 && starty < 14 && startx > 22 && startx < 39;
+// checks if a position is in the house
+static int inHouse(int starty, int startx) {
+  return starty >= 11 && starty < 14 && startx > 22 && startx < 39;
 }
-static void drawField(WINDOW* win){
-//  box(win, 0, 0);
+static void drawField(WINDOW *win) {
+  //  box(win, 0, 0);
   wattron(win, COLOR_PAIR(1));
-  for(int i = 0; i < HEIGHT; i++){
-    for(int j = 0; j < WIDTH; j++){
-        wmove(win, i, j);
-        switch(map[i][j]){
-          case '*':
-          case '.':
-            wattroff(win, COLOR_PAIR(1));
-            wattron(win, COLOR_PAIR(2));
-            waddch(win, map[i][j]);
-            wattroff(win, COLOR_PAIR(2));
-            wattron(win, COLOR_PAIR(1));
+  for (int i = 0; i < HEIGHT; i++) {
+    for (int j = 0; j < WIDTH; j++) {
+      wmove(win, i, j);
+      switch (map[i][j]) {
+      case '*':
+      case '.':
+        wattroff(win, COLOR_PAIR(1));
+        wattron(win, COLOR_PAIR(2));
+        waddch(win, map[i][j]);
+        wattroff(win, COLOR_PAIR(2));
+        wattron(win, COLOR_PAIR(1));
+        break;
+      case '|':
+        wvline(win, 0, 1);
+        break;
+      case '-':
+        whline(win, 0, 1);
+        break;
+      case 'a':
+        waddch(win, ACS_ULCORNER);
+        break;
+      case 'b':
+        waddch(win, ACS_URCORNER);
+        break;
+      case 'c':
+        waddch(win, ACS_LLCORNER);
+        break;
+      case 'd':
+        waddch(win, ACS_LRCORNER);
+        break;
+      case 't':
+        wattroff(win, COLOR_PAIR(1));
+        wattron(win, COLOR_PAIR(2));
+        whline(win, 0, 1);
+        wattroff(win, COLOR_PAIR(2));
+        wattron(win, COLOR_PAIR(1));
+        break;
+      case 'T':
+        waddch(win, ACS_TTEE);
+        break;
+      case 'p':
+        wattroff(win, COLOR_PAIR(1));
+        wattron(win, COLOR_PAIR(3));
+        char pacchar = 'o';
+        if (mouthOpen >= 4) {
+          switch (pacman.dir) {
+          case DOWN:
+            pacchar = '^';
             break;
-          case '|':
-            wvline(win, 0, 1);
+          case LEFT:
+            pacchar = '>';
             break;
-          case '-':
-            whline(win, 0, 1);
+          case RIGHT:
+            pacchar = '<';
             break;
-          case 'a':
-            waddch(win, ACS_ULCORNER);
+          case UP:
+            pacchar = 'v';
             break;
-          case 'b':
-            waddch(win, ACS_URCORNER);
+          case NONE:
+          default:
             break;
-          case 'c':
-            waddch(win, ACS_LLCORNER);
-            break;
-          case 'd':
-            waddch(win, ACS_LRCORNER);
-            break;
-          case 't':
-            wattroff(win, COLOR_PAIR(1));
-            wattron(win, COLOR_PAIR(2));
-            whline(win, 0, 1);
-            wattroff(win, COLOR_PAIR(2));
-            wattron(win, COLOR_PAIR(1));
-            break;
-          case 'T':
-            waddch(win, ACS_TTEE);
-            break;
-          case 'p':
-            wattroff(win, COLOR_PAIR(1));
-            wattron(win, COLOR_PAIR(3));
-            char pacchar = 'o';
-            if(mouthOpen >= 4){
-              switch(pacman.dir){
-                case DOWN: pacchar = '^'; break;
-                case LEFT: pacchar = '>'; break;
-                case RIGHT: pacchar = '<'; break;
-                case UP: pacchar = 'v'; break;
-                case NONE:
-                default:
-                break;
-              }
-            }
-            waddch(win, pacchar);
-            wattroff(win, COLOR_PAIR(3));
-            wattron(win, COLOR_PAIR(1));
-            break;
-          case 'q': //blinky
-            if(mode != FRIGHTENED && mode != FRIGHTENED_BLINK || (mode == FRIGHTENED_BLINK && mouthOpen >= 4)){
-              wattroff(win, COLOR_PAIR(1));
-              wattron(win, COLOR_PAIR(4));
-            }
-
-            if(mouthOpen >= 4)
-              waddch(win, '&');
-            else waddch(win, 'O');
-            if(mode != FRIGHTENED && mode != FRIGHTENED_BLINK || (mode == FRIGHTENED_BLINK && mouthOpen >= 4)){
-              wattroff(win, COLOR_PAIR(4));
-              wattron(win, COLOR_PAIR(1));
-            }
-            break;
-          case 'r': //pinky
-            if(mode != FRIGHTENED && mode != FRIGHTENED_BLINK || (mode == FRIGHTENED_BLINK && mouthOpen >= 4)){
-              wattroff(win, COLOR_PAIR(1));
-              wattron(win, COLOR_PAIR(6));
-            }
-            if(mouthOpen >= 4)
-              waddch(win, '&');
-            else waddch(win, 'O');
-            if(mode != FRIGHTENED || (mode == FRIGHTENED_BLINK && mouthOpen >= 4)){
-              wattroff(win, COLOR_PAIR(6));
-              wattron(win, COLOR_PAIR(1));
-            }
-            break;
-          case 's': //inky
-            if(mode != FRIGHTENED && mode != FRIGHTENED_BLINK || (mode == FRIGHTENED_BLINK && mouthOpen >= 4)){
-              wattroff(win, COLOR_PAIR(1));
-              wattron(win, COLOR_PAIR(7));
-            }
-            if(mouthOpen >= 4)
-              waddch(win, '&');
-            else waddch(win, 'O');
-            if(mode != FRIGHTENED || (mode == FRIGHTENED_BLINK && mouthOpen >= 4)){
-              wattroff(win, COLOR_PAIR(7));
-              wattron(win, COLOR_PAIR(1));
-            }
-            break;
-          case 'u': //clyde
-            if(mode != FRIGHTENED && mode != FRIGHTENED_BLINK || (mode == FRIGHTENED_BLINK && mouthOpen >= 4)){
-              wattroff(win, COLOR_PAIR(1));
-              wattron(win, COLOR_PAIR(8));
-            }
-            if(mouthOpen >= 4)
-              waddch(win, '&');
-            else waddch(win, 'O');
-            if(mode != FRIGHTENED || (mode == FRIGHTENED_BLINK && mouthOpen >= 4)){
-              wattroff(win, COLOR_PAIR(8));
-              wattron(win, COLOR_PAIR(1));
-            }
-            break;
+          }
+        }
+        waddch(win, pacchar);
+        wattroff(win, COLOR_PAIR(3));
+        wattron(win, COLOR_PAIR(1));
+        break;
+      case 'q': // blinky
+        if (mode != FRIGHTENED && mode != FRIGHTENED_BLINK ||
+            (mode == FRIGHTENED_BLINK && mouthOpen >= 4)) {
+          wattroff(win, COLOR_PAIR(1));
+          wattron(win, COLOR_PAIR(4));
         }
 
+        if (mouthOpen >= 4)
+          waddch(win, '&');
+        else
+          waddch(win, 'O');
+        if (mode != FRIGHTENED && mode != FRIGHTENED_BLINK ||
+            (mode == FRIGHTENED_BLINK && mouthOpen >= 4)) {
+          wattroff(win, COLOR_PAIR(4));
+          wattron(win, COLOR_PAIR(1));
+        }
+        break;
+      case 'r': // pinky
+        if (mode != FRIGHTENED && mode != FRIGHTENED_BLINK ||
+            (mode == FRIGHTENED_BLINK && mouthOpen >= 4)) {
+          wattroff(win, COLOR_PAIR(1));
+          wattron(win, COLOR_PAIR(6));
+        }
+        if (mouthOpen >= 4)
+          waddch(win, '&');
+        else
+          waddch(win, 'O');
+        if (mode != FRIGHTENED ||
+            (mode == FRIGHTENED_BLINK && mouthOpen >= 4)) {
+          wattroff(win, COLOR_PAIR(6));
+          wattron(win, COLOR_PAIR(1));
+        }
+        break;
+      case 's': // inky
+        if (mode != FRIGHTENED && mode != FRIGHTENED_BLINK ||
+            (mode == FRIGHTENED_BLINK && mouthOpen >= 4)) {
+          wattroff(win, COLOR_PAIR(1));
+          wattron(win, COLOR_PAIR(7));
+        }
+        if (mouthOpen >= 4)
+          waddch(win, '&');
+        else
+          waddch(win, 'O');
+        if (mode != FRIGHTENED ||
+            (mode == FRIGHTENED_BLINK && mouthOpen >= 4)) {
+          wattroff(win, COLOR_PAIR(7));
+          wattron(win, COLOR_PAIR(1));
+        }
+        break;
+      case 'u': // clyde
+        if (mode != FRIGHTENED && mode != FRIGHTENED_BLINK ||
+            (mode == FRIGHTENED_BLINK && mouthOpen >= 4)) {
+          wattroff(win, COLOR_PAIR(1));
+          wattron(win, COLOR_PAIR(8));
+        }
+        if (mouthOpen >= 4)
+          waddch(win, '&');
+        else
+          waddch(win, 'O');
+        if (mode != FRIGHTENED ||
+            (mode == FRIGHTENED_BLINK && mouthOpen >= 4)) {
+          wattroff(win, COLOR_PAIR(8));
+          wattron(win, COLOR_PAIR(1));
+        }
+        break;
+      }
     }
   }
   mvprintw(0, 0, "points: %d", points);
-  //draw lives
+  // draw lives
   attron(COLOR_PAIR(3));
-  for(int i = 0; i < lives; i++){
+  for (int i = 0; i < lives; i++) {
     mvaddch(HEIGHT + 2, (i + 1) * 2, '<');
   }
   attroff(COLOR_PAIR(3));
   wrefresh(win);
 }
-static void translateMove(int mvy, int mvx, Direction* dir){
-    if(mvy > 0) *dir = DOWN;
-    else if(mvx > 0){
-      if(mvx > 1) *dir = LEFT;
-      else *dir = RIGHT;
-   }else if(mvy < 0) *dir = UP;
-    else if(mvx < 0){ *dir = LEFT;
-      if(mvx < -1) *dir = RIGHT;
-      else *dir = LEFT;
-    }
+static void translateMove(int mvy, int mvx, Direction *dir) {
+  if (mvy > 0)
+    *dir = DOWN;
+  else if (mvx > 0) {
+    if (mvx > 1)
+      *dir = LEFT;
+    else
+      *dir = RIGHT;
+  } else if (mvy < 0)
+    *dir = UP;
+  else if (mvx < 0) {
+    *dir = LEFT;
+    if (mvx < -1)
+      *dir = RIGHT;
+    else
+      *dir = LEFT;
+  }
 }
-static void translateDir(Direction dir, int* mvy, int* mvx){
-  switch(dir){
-    case UP:
-      *mvx = 0;
-      *mvy = -1;
+static void translateDir(Direction dir, int *mvy, int *mvx) {
+  switch (dir) {
+  case UP:
+    *mvx = 0;
+    *mvy = -1;
     break;
-    case RIGHT:
-      *mvx = 1;
-      *mvy = 0;
+  case RIGHT:
+    *mvx = 1;
+    *mvy = 0;
     break;
-    case DOWN:
-      *mvx = 0;
-      *mvy = 1;
+  case DOWN:
+    *mvx = 0;
+    *mvy = 1;
     break;
-    case LEFT:
-      *mvx = -1;
-      *mvy = 0;
+  case LEFT:
+    *mvx = -1;
+    *mvy = 0;
     break;
-    case NONE:
-    default:
-    //ignore
+  case NONE:
+  default:
+    // ignore
     break;
   }
 }
-static void frightened(Ghost* ghost, double time){
-  if(ghost->inhouse > 0){
-    if(time - ghost->inhouse > 5)
+static void frightened(Ghost *ghost, double time) {
+  if (ghost->inhouse > 0) {
+    if (time - ghost->inhouse > 5)
       ghost->inhouse = -1;
     return;
   }
-  //if it is in the house it first has to get out
-  if(inHouse(ghost->y, ghost->x)){
-    if(ghost->x != 30)
+  // if it is in the house it first has to get out
+  if (inHouse(ghost->y, ghost->x)) {
+    if (ghost->x != 30)
       ghost->x += (ghost->x > 30 ? -1 : 1);
-    else if(ghost->doYTick) ghost->y--;
+    else if (ghost->doYTick)
+      ghost->y--;
     ghost->dir = UP;
     return;
   }
@@ -268,44 +298,54 @@ static void frightened(Ghost* ghost, double time){
   int countop = 0;
   int offsets[4][2] = {{-1, 0}, {1, 0}, {0, -1}, {0, 1}};
   int didy = ghost->walky != 0;
-  for(int i = 0; i < 4; i++){
+  for (int i = 0; i < 4; i++) {
     int cy = ghost->y + offsets[i][0], cx = ghost->x + offsets[i][1];
     int doVisit = 1;
-    if(cy < 0 || cx < 0 || cy >= HEIGHT || cx >= WIDTH || !isVisitable(map[cy][cx]) || map[cy][cx] == 't'){
+    if (cy < 0 || cx < 0 || cy >= HEIGHT || cx >= WIDTH ||
+        !isVisitable(map[cy][cx]) || map[cy][cx] == 't') {
       doVisit = 0;
     }
 
-    if(doVisit) for(int off = -1; off <= 1; off+=2){
-      int nx = cx + off;
-      if(nx < WIDTH && nx >= 0 && (!isVisitable(map[cy][nx]) || map[cy][cx] == 't')){
-        doVisit = 0;
-        break;
+    if (doVisit)
+      for (int off = -1; off <= 1; off += 2) {
+        int nx = cx + off;
+        if (nx < WIDTH && nx >= 0 &&
+            (!isVisitable(map[cy][nx]) || map[cy][cx] == 't')) {
+          doVisit = 0;
+          break;
+        }
       }
-    }
-    //do not turn around
-    if(doVisit && (ghost->walky != 0 || ghost->walkx != 0) &&
-         ((offsets[i][0] == 0 && ghost->walky == 0 && offsets[i][1] == -ghost->walkx) ||
-          (offsets[i][1] == 0 && ghost->walkx == 0 && offsets[i][0] == -ghost->walky)))
-       doVisit = 0;
+    // do not turn around
+    if (doVisit && (ghost->walky != 0 || ghost->walkx != 0) &&
+        ((offsets[i][0] == 0 && ghost->walky == 0 &&
+          offsets[i][1] == -ghost->walkx) ||
+         (offsets[i][1] == 0 && ghost->walkx == 0 &&
+          offsets[i][0] == -ghost->walky)))
+      doVisit = 0;
 
-    if(!doVisit) options[i] = 0;
-    else countop++;
+    if (!doVisit)
+      options[i] = 0;
+    else
+      countop++;
   }
 
-  if(countop == 0){
-    //at portal (as long as i haven't fucked up)
-    if(ghost->x + ghost->walkx >= WIDTH) ghost->x = 0;
-    if(ghost->x + ghost->walkx < 0) ghost->x = WIDTH - 1;
-  }else{
-    //randomly choose option
+  if (countop == 0) {
+    // at portal (as long as i haven't fucked up)
+    if (ghost->x + ghost->walkx >= WIDTH)
+      ghost->x = 0;
+    if (ghost->x + ghost->walkx < 0)
+      ghost->x = WIDTH - 1;
+  } else {
+    // randomly choose option
     int optidx = rand() % countop;
     int posidx = 0;
-    for(int j = 0; j < 4; j++){
-      if(options[j]){
-        if(posidx++ == optidx){
+    for (int j = 0; j < 4; j++) {
+      if (options[j]) {
+        if (posidx++ == optidx) {
           ghost->walky = offsets[j][0];
           ghost->walkx = offsets[j][1];
-          if(ghost->doYTick || !didy) ghost->y += ghost->walky;
+          if (ghost->doYTick || !didy)
+            ghost->y += ghost->walky;
           ghost->x += ghost->walkx;
           break;
         }
@@ -313,25 +353,27 @@ static void frightened(Ghost* ghost, double time){
     }
   }
 }
-static void shortestWayChaseLogic(Ghost* g, int targety, int targetx){
-  g->scattering = 0; //to reset
-  const Way nw = aStar(g->y, g->x, targety, targetx, &map[0][0], HEIGHT, WIDTH, g->dir);
+static void shortestWayChaseLogic(Ghost *g, int targety, int targetx) {
+  g->scattering = 0; // to reset
+  const Way nw =
+      aStar(g->y, g->x, targety, targetx, &map[0][0], HEIGHT, WIDTH, g->dir);
   int oldx = g->x, oldy = g->y;
-  if(nw.size >= 1){
+  if (nw.size >= 1) {
     const int ny = nw.way[0], nx = nw.way[1];
-    if(ny != g->y && g->doYTick){
+    if (ny != g->y && g->doYTick) {
       g->y = ny;
-    }else g->x = nx;
+    } else
+      g->x = nx;
   }
   translateMove(g->y - oldy, g->x - oldx, &g->dir);
   free(nw.way);
 }
-static void scatter(Ghost* ghost, int* way, int waysize){
-  if(ghost->x == way[0] && ghost->y == way[1])
+static void scatter(Ghost *ghost, int *way, int waysize) {
+  if (ghost->x == way[0] && ghost->y == way[1])
     ghost->scattering = 1;
-  if(ghost->scattering){
-    for(int i = 0; i < waysize; i++){
-      if(way[i*2] == ghost->x && way[i*2 + 1] == ghost->y){
+  if (ghost->scattering) {
+    for (int i = 0; i < waysize; i++) {
+      if (way[i * 2] == ghost->x && way[i * 2 + 1] == ghost->y) {
         const int nexti = i < waysize - 1 ? i + 1 : 0;
         const int xdiff = way[nexti * 2] - way[i * 2];
         const int ydiff = way[nexti * 2 + 1] - way[i * 2 + 1];
@@ -341,37 +383,37 @@ static void scatter(Ghost* ghost, int* way, int waysize){
       }
     }
     ghost->x += ghost->walkx;
-    if(ghost->doYTick)
+    if (ghost->doYTick)
       ghost->y += ghost->walky;
     translateMove(ghost->walky, ghost->walkx, &ghost->dir);
-  }else{
+  } else {
     shortestWayChaseLogic(ghost, way[1], way[0]);
   }
 }
-static void defaultPositions(){
-  //init pacman
+static void defaultPositions() {
+  // init pacman
   pacman.y = 21;
   pacman.x = 28;
   pacman.dir = RIGHT;
   pacman.desiredDir = NONE;
   map[pacman.y][pacman.x] = 'p';
-  //init ghosts
+  // init ghosts
   mode = SCATTER;
-  //init speedy
+  // init speedy
   blinky.y = 12;
   blinky.x = 24;
-  //init blinky
+  // init blinky
   pinky.y = 12;
   pinky.x = 26;
-  //init inky
+  // init inky
   inky.y = 12;
   inky.x = 30;
-  //init clyde
+  // init clyde
   clyde.y = 12;
   clyde.x = 32;
 
-  for(int i = 0; i < 4; i++){
-    Ghost* g = ghosts[i];
+  for (int i = 0; i < 4; i++) {
+    Ghost *g = ghosts[i];
     g->prevFieldContent = ' ';
     g->doYTick = 0;
     g->scattering = 0;
@@ -379,34 +421,37 @@ static void defaultPositions(){
     g->dir = NONE;
   }
 }
-static void countDown(){
+static void countDown() {
   drawField(win);
   wattron(win, COLOR_PAIR(5));
-  mvwprintw(win, HEIGHT / 2, WIDTH/2 - 3, "Ready?");
+  mvwprintw(win, HEIGHT / 2, WIDTH / 2 - 3, "Ready?");
   wrefresh(win);
   usleep(500 * 1000);
-  mvwprintw(win, HEIGHT / 2, WIDTH/2 - 3, "      ");
-  for(int i = 3; i >= 1; i--){
-    mvwprintw(win, HEIGHT / 2, WIDTH/2, "%d", i);
+  mvwprintw(win, HEIGHT / 2, WIDTH / 2 - 3, "      ");
+  for (int i = 3; i >= 1; i--) {
+    mvwprintw(win, HEIGHT / 2, WIDTH / 2, "%d", i);
     wrefresh(win);
     usleep(500 * 1000);
   }
 }
-static void ghostCollisionLogic(Ghost*g, double time, int housey, int housex, int origy, int origx, char ghostChar){
-  if(g->y == pacman.y && g->x == pacman.x || origy == pacman.y && origx == pacman.x){
-    if(mode == FRIGHTENED || mode == FRIGHTENED_BLINK){
+static void ghostCollisionLogic(Ghost *g, double time, int housey, int housex,
+                                int origy, int origx, char ghostChar) {
+  if (g->y == pacman.y && g->x == pacman.x ||
+      origy == pacman.y && origx == pacman.x) {
+    if (mode == FRIGHTENED || mode == FRIGHTENED_BLINK) {
       sleep(1);
       g->y = housey;
       g->x = housex;
       g->dir = UP;
       g->inhouse = time;
       points += 5;
-    }else{
-      if(--lives == 0) gameover = 1;
-      else{
+    } else {
+      if (--lives == 0)
+        gameover = 1;
+      else {
         sleep(1);
-        for(int i = 0; i < 4; i++){
-          Ghost* g = ghosts[i];
+        for (int i = 0; i < 4; i++) {
+          Ghost *g = ghosts[i];
           map[g->y][g->x] = g->prevFieldContent;
         }
         defaultPositions();
@@ -415,176 +460,185 @@ static void ghostCollisionLogic(Ghost*g, double time, int housey, int housex, in
     }
   }
   char prev = map[g->y][g->x];
-  if(prev == ' ' || prev == '*' || prev == '.' || prev == 't'){
+  if (prev == ' ' || prev == '*' || prev == '.' || prev == 't') {
     g->prevFieldContent = prev;
     map[g->y][g->x] = ghostChar;
-  }else g->prevFieldContent = 127;
+  } else
+    g->prevFieldContent = 127;
 }
-static void inkyLogic(double time){
+static void inkyLogic(double time) {
   char prev = inky.prevFieldContent;
-  if(prev != 127) map[inky.y][inky.x] = prev;
+  if (prev != 127)
+    map[inky.y][inky.x] = prev;
   int origx = inky.x, origy = inky.y;
-  if(time - levelStarted >= (7-level)){ //i sleep in house with initial 6s
-    switch(mode){
-      case CHASE:
-      {
-        inky.scattering = 0;
-        int mvpx = (pacman.dir == UP || pacman.dir == DOWN)? 0 : (pacman.dir == LEFT ? -1 : (pacman.dir == RIGHT ? 1 : 0));
-        int mvpy = (pacman.dir == LEFT || pacman.dir == RIGHT) ? 0 : (pacman.dir == UP ? -1 : (pacman.dir == DOWN ? 1 : 0));
-        int targetx = pacman.x + mvpx * 2;
-        int targety = pacman.y + mvpy * 2;
-        //two ahead now mirror by blinky
-        targetx += targetx - blinky.x;
-        targety += targety - blinky.y;
-        targetx = MIN(WIDTH-1, MAX(0, targetx));
-        targety = MIN(HEIGHT-1, MAX(0, targety));
+  if (time - levelStarted >= (7 - level)) { // i sleep in house with initial 6s
+    switch (mode) {
+    case CHASE: {
+      inky.scattering = 0;
+      int mvpx =
+          (pacman.dir == UP || pacman.dir == DOWN)
+              ? 0
+              : (pacman.dir == LEFT ? -1 : (pacman.dir == RIGHT ? 1 : 0));
+      int mvpy = (pacman.dir == LEFT || pacman.dir == RIGHT)
+                     ? 0
+                     : (pacman.dir == UP ? -1 : (pacman.dir == DOWN ? 1 : 0));
+      int targetx = pacman.x + mvpx * 2;
+      int targety = pacman.y + mvpy * 2;
+      // two ahead now mirror by blinky
+      targetx += targetx - blinky.x;
+      targety += targety - blinky.y;
+      targetx = MIN(WIDTH - 1, MAX(0, targetx));
+      targety = MIN(HEIGHT - 1, MAX(0, targety));
 
-        shortestWayChaseLogic(&inky, targety, targetx);
-        break;
-      }
-      case SCATTER:
-        {
-          int way[12] = {59, 18, 59, 21, 53, 21, 53, 25, 47, 25, 47, 18};
-          scatter(&inky, &way[0], 6);
-        }
-        break;
-      case FRIGHTENED_BLINK:
-      case FRIGHTENED:
-        inky.scattering = 0;
-        frightened(&inky, time);
-        break;
+      shortestWayChaseLogic(&inky, targety, targetx);
+      break;
+    }
+    case SCATTER: {
+      int way[12] = {59, 18, 59, 21, 53, 21, 53, 25, 47, 25, 47, 18};
+      scatter(&inky, &way[0], 6);
+    } break;
+    case FRIGHTENED_BLINK:
+    case FRIGHTENED:
+      inky.scattering = 0;
+      frightened(&inky, time);
+      break;
     }
   }
   ghostCollisionLogic(&inky, time, 12, 28, origy, origx, 's');
 }
-static void blinkyLogic(double time){
-  //i dont sleep
-  char prev =  blinky.prevFieldContent;
-  if(prev != 127) map[blinky.y][blinky.x] = prev;
+static void blinkyLogic(double time) {
+  // i dont sleep
+  char prev = blinky.prevFieldContent;
+  if (prev != 127)
+    map[blinky.y][blinky.x] = prev;
   int origx = blinky.x, origy = blinky.y;
-  switch(mode){
-    case CHASE:
-      shortestWayChaseLogic(&blinky, pacman.y, pacman.x);
-      break;
-    case SCATTER:
-      {
-        int way[8] = {47, 1, 59, 1, 59, 4, 47, 4};
-        scatter(&blinky, &way[0], 4);
-      }
-      break;
-    case FRIGHTENED_BLINK:
-    case FRIGHTENED:
-      blinky.scattering = 0;
-      frightened(&blinky, time);
-      break;
+  switch (mode) {
+  case CHASE:
+    shortestWayChaseLogic(&blinky, pacman.y, pacman.x);
+    break;
+  case SCATTER: {
+    int way[8] = {47, 1, 59, 1, 59, 4, 47, 4};
+    scatter(&blinky, &way[0], 4);
+  } break;
+  case FRIGHTENED_BLINK:
+  case FRIGHTENED:
+    blinky.scattering = 0;
+    frightened(&blinky, time);
+    break;
   }
   ghostCollisionLogic(&blinky, time, 12, 24, origy, origx, 'q');
 }
-static void clydeLogic(double time){
+static void clydeLogic(double time) {
   char prev = clyde.prevFieldContent;
-  if(prev != 127) map[clyde.y][clyde.x] = prev;
+  if (prev != 127)
+    map[clyde.y][clyde.x] = prev;
   int origx = clyde.x, origy = clyde.y;
-  if(time - levelStarted >= (8-level)){ //i sleep in house with initial 7s
-    switch(mode){
-      case CHASE:
-        {
-          int xdiff = pacman.x - clyde.x;
-          int ydiff = pacman.y - clyde.y;
-          double distance = sqrt(xdiff * xdiff - ydiff * ydiff);
-          if(distance > 8){
-            //chase pacman
-            shortestWayChaseLogic(&clyde, pacman.y, pacman.x);
-            break;
-          }//else no break to scatter
-        }
-      case SCATTER:
-        {
-          int way[12] = {2, 18, 2, 21, 8, 21, 8, 25, 14, 25, 14, 18};
-          scatter(&clyde, &way[0], 6);
-          break;
-        }
-      case FRIGHTENED_BLINK:
-      case FRIGHTENED:
-        clyde.scattering = 0;
-        frightened(&clyde, time);
+  if (time - levelStarted >= (8 - level)) { // i sleep in house with initial 7s
+    switch (mode) {
+    case CHASE: {
+      int xdiff = pacman.x - clyde.x;
+      int ydiff = pacman.y - clyde.y;
+      double distance = sqrt(xdiff * xdiff - ydiff * ydiff);
+      if (distance > 8) {
+        // chase pacman
+        shortestWayChaseLogic(&clyde, pacman.y, pacman.x);
         break;
+      } // else no break to scatter
+    }
+    case SCATTER: {
+      int way[12] = {2, 18, 2, 21, 8, 21, 8, 25, 14, 25, 14, 18};
+      scatter(&clyde, &way[0], 6);
+      break;
+    }
+    case FRIGHTENED_BLINK:
+    case FRIGHTENED:
+      clyde.scattering = 0;
+      frightened(&clyde, time);
+      break;
     }
   }
   ghostCollisionLogic(&clyde, time, 12, 32, origy, origx, 'u');
 }
-static void pinkyLogic(double time){
-  char prev =  pinky.prevFieldContent;
-  if(prev != 127) map[pinky.y][pinky.x] = prev;
+static void pinkyLogic(double time) {
+  char prev = pinky.prevFieldContent;
+  if (prev != 127)
+    map[pinky.y][pinky.x] = prev;
   int origx = pinky.x, origy = pinky.y;
-  if(time - levelStarted >= (5-level)){ //i sleep in house with initial 4s
-    switch(mode){
-      case CHASE:
-      {
-        pinky.scattering = 0;
-        int mvpx = (pacman.dir == UP || pacman.dir == DOWN)? 0 : (pacman.dir == LEFT ? -1 : (pacman.dir == RIGHT ? 1 : 0));
-        int mvpy = (pacman.dir == LEFT || pacman.dir == RIGHT) ? 0 : (pacman.dir == UP ? -1 : (pacman.dir == DOWN ? 1 : 0));
-        int targetx = MIN(WIDTH - 1, MAX(0, pacman.x + mvpx * 4));
-        int targety = MIN(HEIGHT - 1, MAX(0, pacman.y + mvpy * 4));
-        shortestWayChaseLogic(&pinky, targety, targetx);
-        break;
-      }
-      case SCATTER:
-        {
-          int way[8] = {2, 1, 2, 4, 14, 4, 14, 1};
-          scatter(&pinky, &way[0], 4);
-        }
-        break;
-      case FRIGHTENED_BLINK:
-      case FRIGHTENED:
-        pinky.scattering = 0;
-        frightened(&pinky, time);
-        break;
+  if (time - levelStarted >= (5 - level)) { // i sleep in house with initial 4s
+    switch (mode) {
+    case CHASE: {
+      pinky.scattering = 0;
+      int mvpx =
+          (pacman.dir == UP || pacman.dir == DOWN)
+              ? 0
+              : (pacman.dir == LEFT ? -1 : (pacman.dir == RIGHT ? 1 : 0));
+      int mvpy = (pacman.dir == LEFT || pacman.dir == RIGHT)
+                     ? 0
+                     : (pacman.dir == UP ? -1 : (pacman.dir == DOWN ? 1 : 0));
+      int targetx = MIN(WIDTH - 1, MAX(0, pacman.x + mvpx * 4));
+      int targety = MIN(HEIGHT - 1, MAX(0, pacman.y + mvpy * 4));
+      shortestWayChaseLogic(&pinky, targety, targetx);
+      break;
+    }
+    case SCATTER: {
+      int way[8] = {2, 1, 2, 4, 14, 4, 14, 1};
+      scatter(&pinky, &way[0], 4);
+    } break;
+    case FRIGHTENED_BLINK:
+    case FRIGHTENED:
+      pinky.scattering = 0;
+      frightened(&pinky, time);
+      break;
     }
   }
   ghostCollisionLogic(&pinky, time, 12, 26, origy, origx, 'r');
 }
-static void defaultParameters(double time){
+static void defaultParameters(double time) {
   gameover = 0;
   setFrightened = 0;
   remainingDots = 234;
   levelStarted = time;
-  //init map
-  for(int j = 0; j < HEIGHT; j++)
-    for(int i = 0; i < WIDTH; i++)
+  // init map
+  for (int j = 0; j < HEIGHT; j++)
+    for (int i = 0; i < WIDTH; i++)
       map[j][i] = backup_map[j][i];
   defaultPositions();
 }
-static void increaseLevel(double time){
+static void increaseLevel(double time) {
   defaultParameters(time);
-  if(!(++level % 2))
-    scatterTime --;
+  if (!(++level % 2))
+    scatterTime--;
   points += 10;
   countDown();
 }
-static void gameLogic(int doYTick, double time){
+static void gameLogic(int doYTick, double time) {
   int mvx, mvy;
-  //check for desired dir
-  if(pacman.desiredDir != NONE && pacman.desiredDir != pacman.dir){
+  // check for desired dir
+  if (pacman.desiredDir != NONE && pacman.desiredDir != pacman.dir) {
     translateDir(pacman.desiredDir, &mvy, &mvx);
-    if(canMove(pacman.y + mvy, pacman.x + mvx)){
+    if (canMove(pacman.y + mvy, pacman.x + mvx)) {
       pacman.dir = pacman.desiredDir;
       pacman.desiredDir = NONE;
     }
   }
-  //movement tick
+  // movement tick
   translateDir(pacman.dir, &mvy, &mvx);
-  if(!doYTick) mvy = 0;
-  if(canMove(pacman.y + mvy, pacman.x + mvx)){
+  if (!doYTick)
+    mvy = 0;
+  if (canMove(pacman.y + mvy, pacman.x + mvx)) {
     map[pacman.y][pacman.x] = ' ';
     pacman.y += mvy;
     pacman.x += mvx;
-    if(pacman.x < 0) pacman.x = WIDTH-1;
-    if(pacman.x >= WIDTH) pacman.x = 0;
-    if(map[pacman.y][pacman.x] == '*') setFrightened = 1;
-    if(map[pacman.y][pacman.x] == '.'){
+    if (pacman.x < 0)
+      pacman.x = WIDTH - 1;
+    if (pacman.x >= WIDTH)
+      pacman.x = 0;
+    if (map[pacman.y][pacman.x] == '*')
+      setFrightened = 1;
+    if (map[pacman.y][pacman.x] == '.') {
       points++;
       remainingDots--;
-      if(remainingDots == 0){
+      if (remainingDots == 0) {
         sleep(1);
         //-> next level
         increaseLevel(time);
@@ -593,18 +647,18 @@ static void gameLogic(int doYTick, double time){
     map[pacman.y][pacman.x] = 'p';
   }
 }
-void runPacman(int highscore){
+void runPacman(int *highscore) {
   timeout(1);
   clear();
-	refresh();
+  refresh();
   defaultParameters(-1);
   points = 0;
   level = 1;
   lives = 3;
-  //create window
+  // create window
   win = newwin(HEIGHT + 1, WIDTH, 2, 2);
   int closeRequest = 0;
-  //colors
+  // colors
   init_color(COLOR_BLACK, 0, 0, 0);
   init_color(COLOR_BLUE, 100, 100, 700);
   init_color(COLOR_MAGENTA, 700, 500, 400);
@@ -613,94 +667,97 @@ void runPacman(int highscore){
   init_color(COLOR_WHITE, 1000, 1000, 1000);
   init_color(COLOR_GREEN, 800, 600, 700);
   init_color(COLOR_CYAN, 100, 600, 700);
-  init_pair(1, COLOR_BLUE, COLOR_BLACK); //walls
-  init_pair(2, COLOR_MAGENTA, COLOR_BLACK); //dots
-  init_pair(3, COLOR_YELLOW, COLOR_BLACK); //pacman
-  init_pair(4, COLOR_RED, COLOR_BLACK); //blinky
+  init_pair(1, COLOR_BLUE, COLOR_BLACK);    // walls
+  init_pair(2, COLOR_MAGENTA, COLOR_BLACK); // dots
+  init_pair(3, COLOR_YELLOW, COLOR_BLACK);  // pacman
+  init_pair(4, COLOR_RED, COLOR_BLACK);     // blinky
   init_pair(5, COLOR_WHITE, COLOR_BLACK);
-  init_pair(6, COLOR_GREEN, COLOR_BLACK); //pinky
-  init_pair(7, COLOR_CYAN, COLOR_BLACK); //inky
-  init_pair(8, COLOR_MAGENTA, COLOR_BLACK); //clyde
-  //for time
+  init_pair(6, COLOR_GREEN, COLOR_BLACK);   // pinky
+  init_pair(7, COLOR_CYAN, COLOR_BLACK);    // inky
+  init_pair(8, COLOR_MAGENTA, COLOR_BLACK); // clyde
+  // for time
   struct timespec time;
-	double pacmanTimeStamp = 0, speedyTimeStamp = 0, modeTimeStamp = 0, pinkyTimeStamp = 0, inkyTimeStamp = 0;
+  double pacmanTimeStamp = 0, speedyTimeStamp = 0, modeTimeStamp = 0,
+         pinkyTimeStamp = 0, inkyTimeStamp = 0;
   chaseTime = 20.0, scatterTime = 7.0;
-  //game loop
+  // game loop
   int doYTick = 1;
   countDown();
-  while(!closeRequest && !gameover){
-    //input handling runs nvtl
+  while (!closeRequest && !gameover) {
+    // input handling runs nvtl
     int c = getch();
-    switch(c){
-      case KEY_LEFT:
-        pacman.desiredDir = LEFT;
-        break;
-      case KEY_RIGHT:
-        pacman.desiredDir = RIGHT;
-        break;
-      case KEY_DOWN:
-        pacman.desiredDir = DOWN;
-        break;
-      case KEY_UP:
-        pacman.desiredDir = UP;
-        break;
-      case 'q':
-        closeRequest = true;
+    switch (c) {
+    case KEY_LEFT:
+      pacman.desiredDir = LEFT;
+      break;
+    case KEY_RIGHT:
+      pacman.desiredDir = RIGHT;
+      break;
+    case KEY_DOWN:
+      pacman.desiredDir = DOWN;
+      break;
+    case KEY_UP:
+      pacman.desiredDir = UP;
+      break;
+    case 'q':
+      closeRequest = true;
       break;
     }
     clock_gettime(CLOCK_REALTIME, &time);
     double seconds = time.tv_sec + (time.tv_nsec / 1000000000.0);
-    if(levelStarted == -1) levelStarted = seconds;
+    if (levelStarted == -1)
+      levelStarted = seconds;
     int toDraw = 0;
-    if(pacmanTimeStamp == 0){
+    if (pacmanTimeStamp == 0) {
       pacmanTimeStamp = speedyTimeStamp = modeTimeStamp = seconds;
     }
-    //mode switch timer
-    if(setFrightened){
+    // mode switch timer
+    if (setFrightened) {
       setFrightened = 0;
       mode = FRIGHTENED;
       modeTimeStamp = seconds;
-      for(int i = 0; i < 4; i++){
-        Ghost* g = ghosts[i];
+      for (int i = 0; i < 4; i++) {
+        Ghost *g = ghosts[i];
         g->walky = 0;
         g->walkx = 0;
       }
     }
-    if(mode != FRIGHTENED && mode != FRIGHTENED_BLINK){
-      if(mode == SCATTER && (seconds - modeTimeStamp) > scatterTime){
+    if (mode != FRIGHTENED && mode != FRIGHTENED_BLINK) {
+      if (mode == SCATTER && (seconds - modeTimeStamp) > scatterTime) {
         mode = CHASE;
         modeTimeStamp = seconds;
-      }else if(mode == CHASE  && (seconds - modeTimeStamp) > chaseTime){
+      } else if (mode == CHASE && (seconds - modeTimeStamp) > chaseTime) {
         mode = SCATTER;
         modeTimeStamp = seconds;
       }
-    }else if(seconds - modeTimeStamp > 13.0){
+    } else if (seconds - modeTimeStamp > 13.0) {
       mode = CHASE;
       modeTimeStamp = seconds;
-    }else if(seconds - modeTimeStamp > 10.0)
+    } else if (seconds - modeTimeStamp > 10.0)
       mode = FRIGHTENED_BLINK;
-    if(scatterTime == 0 && mode == SCATTER) mode = CHASE;
-    //blinky timer
-    if((seconds - speedyTimeStamp) > 0.12){
+    if (scatterTime == 0 && mode == SCATTER)
+      mode = CHASE;
+    // blinky timer
+    if ((seconds - speedyTimeStamp) > 0.12) {
       blinky.doYTick = (blinky.doYTick + 1) % 2;
       blinkyLogic(seconds);
       speedyTimeStamp = seconds;
     }
-    if((seconds - pinkyTimeStamp) > 0.14){
+    if ((seconds - pinkyTimeStamp) > 0.14) {
       pinky.doYTick = (pinky.doYTick + 1) % 2;
       pinkyLogic(seconds);
       pinkyTimeStamp = seconds;
     }
-    if((seconds - inkyTimeStamp) > 0.16){
+    if ((seconds - inkyTimeStamp) > 0.16) {
       clyde.doYTick = (clyde.doYTick + 1) % 2;
       clydeLogic(seconds);
       inky.doYTick = (blinky.doYTick + 1) % 2;
       inkyLogic(seconds);
       inkyTimeStamp = seconds;
     }
-    if((seconds - pacmanTimeStamp) > 0.1){
+    if ((seconds - pacmanTimeStamp) > 0.1) {
       gameLogic(doYTick, seconds);
-      //only move every second frame on y
+      // only move every second frame on y
       doYTick = (doYTick + 1) % 2;
       mouthOpen = (mouthOpen + 1) % 8;
       pacmanTimeStamp = seconds;
@@ -708,15 +765,15 @@ void runPacman(int highscore){
       drawField(win);
     }
   }
-  //game ended
-  if(gameover){
+  // game ended
+  if (gameover) {
     wattron(win, COLOR_PAIR(5));
-    mvwprintw(win, HEIGHT/2-1, WIDTH/2-5, "GAME OVER");
-  	mvwprintw(win, HEIGHT/2, WIDTH/2-9, "[press q to exit]");
-  	wrefresh(win);
-  	sleep(1);
-  	while(getch() != 'q')
-    ;
+    mvwprintw(win, HEIGHT / 2 - 1, WIDTH / 2 - 5, "GAME OVER");
+    mvwprintw(win, HEIGHT / 2, WIDTH / 2 - 9, "[press q to exit]");
+    wrefresh(win);
+    sleep(1);
+    while (getch() != 'q')
+      ;
   }
   delwin(win);
 }

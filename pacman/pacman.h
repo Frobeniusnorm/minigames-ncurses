@@ -1,1 +1,1 @@
-void runPacman(int);
+void runPacman(int *);
