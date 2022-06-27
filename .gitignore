@@ -54,3 +54,4 @@ dkms.conf
 
 # language server
 .ccls-cache/
+nbproject/
