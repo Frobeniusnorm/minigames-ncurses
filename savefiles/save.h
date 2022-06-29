@@ -15,7 +15,7 @@ typedef struct SaveFile {
 } SaveFile;
 
 SaveFile *loadSaveFile();
-void updateSaveFile();
+void updateSaveFile(SaveFile *);
 void freeSaveFile(SaveFile *);
 
 GameData *findGame(SaveFile *file, char *gameName);

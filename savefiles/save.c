@@ -50,6 +50,7 @@ SaveFile *loadSaveFile() {
   char *dir;
   char *file;
   findPath(&dir, &file);
+  // TODO check if dir exists
   if (access(file, F_OK) != 0) {
     // file does not exist, create it
     FILE *tmp = fopen(file, "a");
@@ -113,11 +114,20 @@ SaveFile *loadSaveFile() {
           break;
       }
     }
+    fclose(fp);
   }
-  fclose(fp);
   return save;
 }
-void updateSaveFile();
+void updateSaveFile(SaveFile *save) {
+  char *dir;
+  char *file;
+  findPath(&dir, &file);
+  FILE *fp = fopen(file, "w");
+  if (fp) {
+    // TODO
+    fclose(fp);
+  }
+}
 void freeSaveFile(SaveFile *file) {
   for (int g = 0; g < file->num_games; g++) {
     GameData *gd = &file->games[g];
