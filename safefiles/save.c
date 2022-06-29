@@ -13,6 +13,9 @@
 #else
 #if defined(_WIN32)
 #define PLATFORM_WINDOWS
+#include <io.h>
+#define F_OK 0
+#define access _access
 #endif
 #endif
 static char *readAndMallocString(FILE *file) {
@@ -43,14 +46,94 @@ static void findPath(char **dir, char **file) {
     *file = fpath;
   }
 }
-SaveFile* loadSaveFile();
+SaveFile *loadSaveFile() {
+  char *dir;
+  char *file;
+  findPath(&dir, &file);
+  if (access(file, F_OK) != 0) {
+    // file does not exist, create it
+    FILE *tmp = fopen(file, "a");
+    if (tmp)
+      fclose(tmp);
+  }
+  // create SaveFile
+  SaveFile *save = (SaveFile *)malloc(sizeof(SaveFile));
+  save->games = NULL;
+  save->num_games = 0;
+  GameData *curr_gd = NULL;
+  int gameindx = 0, propindx = 0;
+  // open file for reading
+  FILE *fp = fopen(file, "r");
+  if (fp) {
+    for (char line[256]; fgets(line, sizeof(line), fp);) {
+      int line_length = strlen(&line[0]);
+      if (!save->games) { // number of games
+        save->num_games = strtol(&line[0], NULL, 10);
+        if (save->num_games > 0)
+          save->games = (GameData *)malloc(sizeof(GameData) * save->num_games);
+        else
+          break;
+      } else if (line[0] != ' ') { // properties start with a initial whitespace
+        // start of new game
+        if (save->games) {
+          curr_gd = &save->games[gameindx];
+          int name_length = 0;
+          for (; name_length < line_length && line[name_length] != ' ';
+               name_length++)
+            ;
+          curr_gd->gameName = malloc(name_length + 1);
+          memcpy(curr_gd->gameName, &line[0], name_length);
+          curr_gd->gameName[name_length] = '\0';
+          curr_gd->num_properties = atoi(&line[name_length + 1]);
+          if (curr_gd->num_properties > 0)
+            curr_gd->properties =
+                (Property *)malloc(sizeof(Property) * curr_gd->num_properties);
+          gameindx++;
+          propindx = 0;
+        } else
+          break;
+      } else { // property
+        if (curr_gd) {
+          Property *prop = &curr_gd->properties[propindx];
+          int key_length = 0;
+          for (; key_length < line_length && line[key_length + 1] != ' ';
+               key_length++)
+            ;
+          prop->key = (char *)malloc(key_length + 1);
+          memcpy(prop->key, &line[1], key_length);
+          prop->key[key_length] = '\0';
+          // now read value
+          //  first whitespace   second
+          prop->value = (char *)malloc(line_length - 1 - key_length - 1);
+          //\n
+          memcpy(prop->value, &line[key_length + 2],
+                 (line_length - 1) - (key_length + 2));
+          prop->value[(line_length - 1) - (key_length + 2) - 1] = '\0';
+        } else
+          break;
+      }
+    }
+  }
+  fclose(fp);
+  return save;
+}
 void updateSaveFile();
-void freeSaveFile(SaveFile*);
+void freeSaveFile(SaveFile *file) {
+  for (int g = 0; g < file->num_games; g++) {
+    GameData *gd = &file->games[g];
+    for (int p = 0; p < gd->num_properties; p++) {
+      Property *pd = &gd->properties[p];
+      free(pd->key);
+      free(pd->value);
+    }
+    free(gd->properties);
+    free(gd->gameName);
+  }
+  free(file->games);
+  free(file);
+}
 
-GameData* findGame(SaveFile* file, char* gameName);
-char* findValue(GameData* data, char* keyName);
-GameData* createGame(SaveFile* file, char* gameName);
-void putValue(GameData* data, char* key, char* val);
-
-
-
+GameData *findGame(SaveFile *file, char *gameName);
+char *findValue(GameData *data, char *keyName);
+GameData *createGame(SaveFile *file, char *gameName);
+void putValue(GameData *data, char *key, char *val);
