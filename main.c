@@ -1,5 +1,5 @@
 #include "pacman/pacman.h"
-#include "safefiles/save.h"
+#include "savefiles/save.h"
 #include "snake/snake.h"
 #include "tetris/tetris.h"
 #include <ncurses.h>

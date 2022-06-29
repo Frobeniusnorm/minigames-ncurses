@@ -74,7 +74,9 @@ SaveFile *loadSaveFile() {
           save->games = (GameData *)malloc(sizeof(GameData) * save->num_games);
         else
           break;
-      } else if (line[0] != ' ') { // properties start with a initial whitespace
+      } else if ((!curr_gd || propindx >= curr_gd->num_properties) &&
+                 gameindx < save->num_games) { // properties start with a
+                                               // initial whitespace
         // start of new game
         if (save->games) {
           curr_gd = &save->games[gameindx];
@@ -94,22 +96,20 @@ SaveFile *loadSaveFile() {
         } else
           break;
       } else { // property
-        if (curr_gd) {
+        if (curr_gd && propindx < curr_gd->num_properties) {
           Property *prop = &curr_gd->properties[propindx];
           int key_length = 0;
-          for (; key_length < line_length && line[key_length + 1] != ' ';
+          for (; key_length < line_length && line[key_length] != ' ';
                key_length++)
             ;
           prop->key = (char *)malloc(key_length + 1);
-          memcpy(prop->key, &line[1], key_length);
+          memcpy(prop->key, &line[0], key_length);
           prop->key[key_length] = '\0';
           // now read value
-          //  first whitespace   second
-          prop->value = (char *)malloc(line_length - 1 - key_length - 1);
+          prop->value = (char *)malloc(line_length - key_length);
           //\n
-          memcpy(prop->value, &line[key_length + 2],
-                 (line_length - 1) - (key_length + 2));
-          prop->value[(line_length - 1) - (key_length + 2) - 1] = '\0';
+          strcpy(prop->value, &line[key_length + 1]);
+          prop->value[line_length - key_length - 1] = '\0';
         } else
           break;
       }
@@ -124,7 +124,15 @@ void updateSaveFile(SaveFile *save) {
   findPath(&dir, &file);
   FILE *fp = fopen(file, "w");
   if (fp) {
-    // TODO
+    fprintf(fp, "%d\n", save->num_games);
+    for (int g = 0; g < save->num_games; g++) {
+      GameData *gd = &save->games[g];
+      fprintf(fp, "%s %d\n", gd->gameName, gd->num_properties);
+      for (int p = 0; p < gd->num_properties; p++) {
+        Property *pd = &gd->properties[p];
+        fprintf(fp, "%s %s\n", pd->key, pd->value);
+      }
+    }
     fclose(fp);
   }
 }
@@ -143,7 +151,57 @@ void freeSaveFile(SaveFile *file) {
   free(file);
 }
 
-GameData *findGame(SaveFile *file, char *gameName);
-char *findValue(GameData *data, char *keyName);
-GameData *createGame(SaveFile *file, char *gameName);
-void putValue(GameData *data, char *key, char *val);
+GameData *findGame(SaveFile *file, char *gameName) {
+  GameData *ptr = file->games;
+  for (int i = 0; i < file->num_games; i++, ptr++)
+    if (strcmp(ptr->gameName, gameName) == 0)
+      return ptr;
+  return NULL;
+}
+char *findValue(GameData *data, char *keyName) {
+  Property *ptr = data->properties;
+  for (int i = 0; i < data->num_properties; i++, ptr++)
+    if (strcmp(ptr->key, keyName) == 0)
+      return ptr->value;
+  return NULL;
+}
+GameData *createGame(SaveFile *file, char *gameName) {
+  file->num_games++;
+  if (file->num_games == 1) {
+    file->games = (GameData *)malloc(sizeof(GameData));
+  } else {
+    file->games =
+        (GameData *)realloc(file->games, sizeof(GameData) * file->num_games);
+  }
+  GameData *data = &file->games[file->num_games - 1];
+  data->num_properties = 0;
+  data->properties = NULL;
+  data->gameName = (char *)malloc(strlen(gameName) + 1);
+  strcpy(data->gameName, gameName);
+  return data;
+}
+void putValue(GameData *data, char *key, char *val) {
+  int i = 0;
+  char **toSet = NULL;
+  for (Property *ptr = data->properties; i < data->num_properties; i++, ptr++) {
+    if (strcmp(ptr->key, key) == 0) {
+      toSet = &ptr->value;
+      break;
+    }
+  }
+  if (!toSet) {
+    data->num_properties++;
+    if (data->num_properties == 1) {
+      data->properties = (Property *)malloc(sizeof(Property));
+    } else {
+      data->properties = (Property *)realloc(
+          data->properties, sizeof(Property) * data->num_properties);
+    }
+    Property *prop = &data->properties[data->num_properties - 1];
+    prop->key = (char *)malloc(strlen(key) + 1);
+    strcpy(prop->key, key);
+    toSet = &prop->value;
+  }
+  *toSet = (char *)malloc(strlen(val) + 1);
+  strcpy(*toSet, val);
+}

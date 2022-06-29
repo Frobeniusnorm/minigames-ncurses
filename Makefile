@@ -16,8 +16,8 @@ build/pacman.o: pacman/pacman.c pacman/pacman.h pacman/graph.h build/graph.o
 build/graph.o: pacman/graph.h pacman/graph.c
 	$(CC) -o build/graph.o pacman/graph.c
 
-build/save.o: safefiles/save.h safefiles/save.c
-	$(CC) -o build/save.o safefiles/save.c
+build/save.o: savefiles/save.h savefiles/save.c
+	$(CC) -o build/save.o savefiles/save.c
 
 build/main.o: main.c snake/snake.h tetris/tetris.h
 	$(CC) -o build/main.o main.c
