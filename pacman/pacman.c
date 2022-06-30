@@ -76,6 +76,7 @@ static int points = 0;
 static int lives = 3;
 static int remainingDots = 234;
 static WINDOW *win;
+static int *highscore;
 static int canMove(int y, int x) {
   if (y < 0 || x < 0 || y >= HEIGHT || x >= WIDTH)
     return true; // for teleporting
@@ -229,6 +230,10 @@ static void drawField(WINDOW *win) {
     }
   }
   mvprintw(0, 0, "points: %d", points);
+  if (*highscore < points) {
+    *highscore = points;
+  }
+  mvprintw(0, WIDTH - 10, "highscore: %d", *highscore);
   // draw lives
   attron(COLOR_PAIR(3));
   for (int i = 0; i < lives; i++) {
@@ -647,7 +652,8 @@ static void gameLogic(int doYTick, double time) {
     map[pacman.y][pacman.x] = 'p';
   }
 }
-void runPacman(int *highscore) {
+void runPacman(int *highscore_par) {
+  highscore = highscore_par;
   timeout(1);
   clear();
   refresh();

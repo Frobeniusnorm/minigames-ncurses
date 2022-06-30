@@ -93,8 +93,11 @@ SaveFile *loadSaveFile() {
           if (curr_gd->num_properties > 0)
             curr_gd->properties =
                 (Property *)malloc(sizeof(Property) * curr_gd->num_properties);
+          else
+            curr_gd->properties = NULL;
           gameindx++;
           propindx = 0;
+          printf("read new game: %s\n", curr_gd->gameName);
         } else
           break;
       } else { // property
@@ -113,6 +116,10 @@ SaveFile *loadSaveFile() {
           memcpy(prop->value, &line[key_length + 1],
                  line_length - key_length - 1);
           prop->value[line_length - key_length - 2] = '\0';
+          propindx++;
+          printf("read new property for game %s: (%s, %s)\n", curr_gd->gameName,
+                 curr_gd->properties[propindx - 1].key,
+                 curr_gd->properties[propindx - 1].value);
         } else
           break;
       }
@@ -151,28 +158,30 @@ void freeSaveFile(SaveFile *file) {
       free(pd->key);
       free(pd->value);
     }
-    free(gd->properties);
+    if (gd->properties)
+      free(gd->properties);
     free(gd->gameName);
   }
   free(file->games);
   free(file);
 }
 
-GameData *findGame(SaveFile *file, char *gameName) {
+GameData *findGame(SaveFile *file, const char *gameName) {
   GameData *ptr = file->games;
-  for (int i = 0; i < file->num_games; i++, ptr++)
-    if (strcmp(ptr->gameName, gameName) == 0)
-      return ptr;
+  for (int i = 0; i < file->num_games; i++) {
+    if (strcmp(ptr[i].gameName, gameName) == 0)
+      return &ptr[i];
+  }
   return NULL;
 }
-char *findValue(GameData *data, char *keyName) {
+char *findValue(GameData *data, const char *keyName) {
   Property *ptr = data->properties;
   for (int i = 0; i < data->num_properties; i++, ptr++)
     if (strcmp(ptr->key, keyName) == 0)
       return ptr->value;
   return NULL;
 }
-GameData *createGame(SaveFile *file, char *gameName) {
+GameData *createGame(SaveFile *file, const char *gameName) {
   file->num_games++;
   if (file->num_games == 1) {
     file->games = (GameData *)malloc(sizeof(GameData));
@@ -187,7 +196,7 @@ GameData *createGame(SaveFile *file, char *gameName) {
   strcpy(data->gameName, gameName);
   return data;
 }
-void putValue(GameData *data, char *key, char *val) {
+void putValue(GameData *data, const char *key, const char *val) {
   int i = 0;
   char **toSet = NULL;
   for (Property *ptr = data->properties; i < data->num_properties; i++, ptr++) {

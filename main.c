@@ -5,7 +5,9 @@
 #include <ncurses.h>
 #include <stdlib.h>
 #include <time.h>
-static const char *choices[] = {"Snake", "Tetris", "Pacman", "Exit"};
+#define SIZE_CHOICES 4
+static const char *choices[SIZE_CHOICES] = {"Snake", "Tetris", "Pacman",
+                                            "Exit"};
 static const int num_choices = (sizeof(choices) / sizeof(char *));
 static void printMenu(WINDOW *win, int currentChoice) {
   wclear(win);
@@ -21,8 +23,17 @@ static void printMenu(WINDOW *win, int currentChoice) {
   wrefresh(win);
 }
 static void initMenu() {
+  // save files
+  SaveFile *sf = loadSaveFile();
+  GameData *games[SIZE_CHOICES - 1];
+  for (int i = 0; i < SIZE_CHOICES - 1; i++) {
+    games[i] = findGame(sf, choices[i]);
+    if (!games[i]) {
+      games[i] = createGame(sf, choices[i]);
+    }
+  }
+  // gui
   int width, height;
-
   getmaxyx(stdscr, height, width);
   const int sizex = 30, sizey = 10;
   WINDOW *menu =
@@ -44,6 +55,11 @@ static void initMenu() {
       break;
     case 10: {
       int cHigh = 0;
+      if (currentChoice < SIZE_CHOICES - 1) {
+        char *valScore = findValue(games[currentChoice], "score");
+        if (valScore)
+          cHigh = atoi(valScore);
+      }
       switch (currentChoice) {
       case 0: {
         runSnake(&cHigh);
@@ -63,6 +79,10 @@ static void initMenu() {
         return;
       }
       if (startedGame) {
+        char valueStr[15];
+        sprintf(&valueStr[0], "%d", cHigh);
+        putValue(games[currentChoice], "score", &valueStr[0]);
+        updateSaveFile(sf);
         clear();
         timeout(-1);
         mvprintw(height / 2 - sizey / 2 - 2, width / 2 - 7, "Select a game");
@@ -72,6 +92,7 @@ static void initMenu() {
     }
     }
   }
+  freeSaveFile(sf);
 }
 
 int main() {

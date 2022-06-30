@@ -18,9 +18,9 @@ SaveFile *loadSaveFile();
 void updateSaveFile(SaveFile *);
 void freeSaveFile(SaveFile *);
 
-GameData *findGame(SaveFile *file, char *gameName);
-char *findValue(GameData *data, char *keyName);
-GameData *createGame(SaveFile *file, char *gameName);
-void putValue(GameData *data, char *key, char *val);
+GameData *findGame(SaveFile *file, const char *gameName);
+char *findValue(GameData *data, const char *keyName);
+GameData *createGame(SaveFile *file, const char *gameName);
+void putValue(GameData *data, const char *key, const char *val);
 
 #endif
