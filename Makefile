@@ -1,5 +1,5 @@
 #CC = gcc -Werror -Wpedantic -Wall -c
-CC = gcc -Werror -c
+CC = gcc -Werror -g -c
 CFLAGS = -lncursesw -lm
 minigames: build/snake.o build/tetris.o build/main.o build/pacman.o build/graph.o build/save.o | build
 	gcc -o minigames build/snake.o build/tetris.o build/pacman.o build/graph.o build/save.o build/main.o $(CFLAGS)

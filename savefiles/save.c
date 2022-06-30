@@ -50,7 +50,9 @@ SaveFile *loadSaveFile() {
   char *dir;
   char *file;
   findPath(&dir, &file);
-  // TODO check if dir exists
+  struct stat st = {0};
+  if (stat(dir, &st) == -1)
+    mkdir(dir, 0700);
   if (access(file, F_OK) != 0) {
     // file does not exist, create it
     FILE *tmp = fopen(file, "a");
@@ -106,16 +108,19 @@ SaveFile *loadSaveFile() {
           memcpy(prop->key, &line[0], key_length);
           prop->key[key_length] = '\0';
           // now read value
-          prop->value = (char *)malloc(line_length - key_length);
+          prop->value = (char *)malloc(line_length - key_length - 1);
           //\n
-          strcpy(prop->value, &line[key_length + 1]);
-          prop->value[line_length - key_length - 1] = '\0';
+          memcpy(prop->value, &line[key_length + 1],
+                 line_length - key_length - 1);
+          prop->value[line_length - key_length - 2] = '\0';
         } else
           break;
       }
     }
     fclose(fp);
   }
+  free(file);
+  free(dir);
   return save;
 }
 void updateSaveFile(SaveFile *save) {
@@ -135,6 +140,8 @@ void updateSaveFile(SaveFile *save) {
     }
     fclose(fp);
   }
+  free(dir);
+  free(file);
 }
 void freeSaveFile(SaveFile *file) {
   for (int g = 0; g < file->num_games; g++) {
