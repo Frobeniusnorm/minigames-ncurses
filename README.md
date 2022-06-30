@@ -6,7 +6,7 @@ Currently included:
  * Tetris
  * Pacman
 
-There is no implementation for highscores yet.
+highscores are (if possible) saved to a config file in ~/.config/minigames-ncurses/
 
 ### Build ###
 You need gcc, make and the ncurses library.
