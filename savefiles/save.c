@@ -97,7 +97,6 @@ SaveFile *loadSaveFile() {
             curr_gd->properties = NULL;
           gameindx++;
           propindx = 0;
-          printf("read new game: %s\n", curr_gd->gameName);
         } else
           break;
       } else { // property
@@ -117,9 +116,6 @@ SaveFile *loadSaveFile() {
                  line_length - key_length - 1);
           prop->value[line_length - key_length - 2] = '\0';
           propindx++;
-          printf("read new property for game %s: (%s, %s)\n", curr_gd->gameName,
-                 curr_gd->properties[propindx - 1].key,
-                 curr_gd->properties[propindx - 1].value);
         } else
           break;
       }
@@ -201,6 +197,8 @@ void putValue(GameData *data, const char *key, const char *val) {
   char **toSet = NULL;
   for (Property *ptr = data->properties; i < data->num_properties; i++, ptr++) {
     if (strcmp(ptr->key, key) == 0) {
+      if (ptr->value)
+        free(ptr->value);
       toSet = &ptr->value;
       break;
     }

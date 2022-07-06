@@ -76,7 +76,7 @@ static void initMenu() {
       case 3:
         delwin(menu);
         refresh();
-        return;
+        goto end_menu;
       }
       if (startedGame) {
         char valueStr[15];
@@ -92,6 +92,7 @@ static void initMenu() {
     }
     }
   }
+end_menu:
   freeSaveFile(sf);
 }
 
